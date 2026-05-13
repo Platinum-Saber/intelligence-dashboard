@@ -1,0 +1,53 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.symbolTabs, .dayTabs { display: flex; gap: 6px; }
+
+.symbolTab, .activeSymbol {
+  padding: 4px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.activeSymbol { color: #fff; }
+.symbolTab:hover { border-color: var(--text); color: var(--text); }
+
+.tab, .activeTab {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.activeTab {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.stats { display: flex; gap: 24px; flex-wrap: wrap; }
+
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.statLabel { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.statValue { font-size: 15px; font-weight: 600; color: var(--text); }

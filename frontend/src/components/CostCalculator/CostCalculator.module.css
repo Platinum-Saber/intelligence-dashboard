@@ -1,0 +1,78 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.title { font-size: 16px; }
+
+.hint { color: var(--text-muted); font-size: 12px; }
+
+.form { display: flex; flex-direction: column; gap: 12px; }
+
+.row { display: flex; gap: 16px; flex-wrap: wrap; }
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 140px;
+}
+.label select, .label input { width: 100%; }
+
+.overrides summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.overrides summary:hover { color: var(--text); }
+
+.btn {
+  align-self: flex-start;
+  padding: 8px 22px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:not(:disabled):hover { opacity: 0.85; }
+
+.result {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resultRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.resultRow span { color: var(--text-muted); }
+.resultRow strong { color: var(--text); }
+
+.highlight {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.highlight span { color: var(--text); font-weight: 500; }
+.highlight strong { color: var(--green); font-size: 16px; }
+
+.error { color: var(--red); font-size: 12px; }

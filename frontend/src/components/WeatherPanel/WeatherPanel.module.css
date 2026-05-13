@@ -1,0 +1,41 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.title { font-size: 16px; }
+
+.sectionTitle {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.tableHeader, .row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12px;
+}
+
+.tableHeader {
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.row { border-bottom: 1px solid var(--border); align-items: center; }
+.row:last-child { border-bottom: none; }
+
+.name { color: var(--text); }
+.rain { color: var(--text-muted); }
+.badge { font-weight: 600; }
+.muted { color: var(--text-muted); font-size: 13px; }
