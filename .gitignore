@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.db
+*.db-shm
+*.db-wal
+
+# uv
+.uv/
+
+# Node
+node_modules/
+dist/
+.cache/
+
+# Env files with secrets
+.env
+# (keep .env.example)
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
