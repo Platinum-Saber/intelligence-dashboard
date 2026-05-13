@@ -10,6 +10,9 @@
 | Version | Date | Change Summary |
 |---------|------|----------------|
 | 0.1 | 2026-05-13 | Initial draft — scoped from critical analysis of ACL AR 2024/25 |
+| 0.2 | 2026-05-13 | Phase 1 complete; tech stack finalised |
+| 0.3 | 2026-05-13 | Phase 2 complete; delivery plan and handover notes updated |
+| 0.4 | 2026-05-13 | UI refactor complete; phase checkboxes and tech stack table updated |
 
 ---
 
@@ -154,47 +157,60 @@ These items were considered and deliberately excluded or de-scoped:
   Email / SMS Alerts → Procurement Team
 ```
 
-### Candidate Tech Stack (Proposed, Not Final)
+### Finalised Tech Stack
 
-| Layer | Technology | Rationale |
-|-------|-----------|-----------|
-| Backend | Python (FastAPI) | Fast to develop; rich data/ML library ecosystem |
-| Scheduler | APScheduler or Celery + Redis | Reliable job scheduling for data pulls |
-| Database | PostgreSQL + TimescaleDB extension | Time-series optimized; free and open source |
-| NLP | FinBERT (HuggingFace) | Pre-trained on financial text; no training cost |
-| Frontend | React + Recharts / Plotly | Interactive charts; component-based |
-| Alerts | SMTP email (Phase 1), Twilio SMS (Phase 2) | Simple, reliable, low-cost to start |
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Backend | Python 3.12 + FastAPI 0.136 | REST endpoints; OpenAPI docs at `/docs`; `uv` for package management |
+| Scheduler | APScheduler 3.11 (`BackgroundScheduler`) | In-process; no Redis needed |
+| Database | SQLAlchemy 2 + SQLite (dev) / PostgreSQL + TimescaleDB (prod) | Swap via `DATABASE_URL` env var |
+| NLP | FinBERT (`ProsusAI/finbert`) via HuggingFace | CPU-only inference; lazy-loaded; ~400 MB download on first use |
+| Frontend | React 19 + TypeScript + Vite 8 + Tailwind CSS v3 | shadcn/ui components; React Router v7 |
+| Charts | Recharts 3 | Line, area charts with CSS variable theming |
+| Data fetching | @tanstack/react-query v5 | Query caching; configurable refetch intervals |
+| Weather | Open-Meteo API | Free, keyless; runs in all modes |
+| FX | exchangerate-api.com | Requires `FX_API_KEY` |
+| News | NewsAPI.org | Requires `NEWSAPI_KEY` |
+| Commodities | Yahoo Finance (`HG=F`, `ALI=F`) | Free but unofficial endpoint — fragile |
+| Alerts | Rule-based engine + SMTP email (optional) | Twilio SMS deprioritised |
 | Deployment | Docker Compose (dev), VPS or AWS EC2 (prod) | Containerized for portability |
 
 ---
 
 ## 6. Phased Delivery Plan
 
-### Phase 1 — Foundation (Estimated: 4–6 weeks)
-**Goal:** Working dashboard with live data and basic alerting. No ML yet.
+### Phase 1 — Foundation ✅ Complete
 
-- [ ] Set up data collection for USD/LKR (CBSL + free API)
-- [ ] Set up data collection for LME copper and aluminium prices
-- [ ] Set up Sri Lanka weather data collection (Open-Meteo)
-- [ ] Set up news feed collection (NewsAPI.org)
-- [ ] PostgreSQL schema design (FX, commodities, weather, news tables)
-- [ ] Basic FastAPI backend with REST endpoints
-- [ ] React dashboard: Overview, FX panel, Commodity panel
-- [ ] Rule-based alert engine (threshold-based, email notifications)
-- [ ] Cost-impact calculator (simple: quantity × LME price × FX rate → LKR)
+- [x] Set up data collection for USD/LKR (CBSL + free API)
+- [x] Set up data collection for LME copper and aluminium prices
+- [x] Set up Sri Lanka weather data collection (Open-Meteo)
+- [x] Set up news feed collection (NewsAPI.org)
+- [x] PostgreSQL schema design (FX, commodities, weather, news tables)
+- [x] Basic FastAPI backend with REST endpoints
+- [x] React dashboard: Overview, FX panel, Commodity panel
+- [x] Rule-based alert engine (threshold-based, email notifications)
+- [x] Cost-impact calculator (simple: quantity × LME price × FX rate → LKR)
 
-### Phase 2 — Intelligence Layer (Estimated: 3–4 weeks)
-**Goal:** Add NLP sentiment, historical analysis, and refine UI.
+### Phase 2 — Intelligence Layer ✅ Complete
 
-- [ ] Integrate FinBERT for news sentiment scoring
-- [ ] Build topic-filtered news feed with sentiment scores
-- [ ] Historical cost-impact analysis view ("what-if" calculator)
-- [ ] Weather panel: district-level flood risk map for Sri Lanka
-- [ ] Supplier country weather (UAE, China, Vietnam ports)
-- [ ] Alert engine expansion: sentiment-based and weather-based alerts
-- [ ] User-configurable alert thresholds
+- [x] Integrate FinBERT for news sentiment scoring
+- [x] Build topic-filtered news feed with sentiment scores
+- [x] Historical cost-impact analysis view ("what-if" calculator)
+- [x] Weather panel: district-level flood risk map for Sri Lanka
+- [x] Supplier country weather (UAE, China, Vietnam ports)
+- [x] Alert engine expansion: sentiment-based and weather-based alerts
+- [x] User-configurable alert thresholds
 
-### Phase 3 — Validation & Handover (Estimated: 2–3 weeks)
+### UI Refactor ✅ Complete
+
+- [x] Tailwind CSS v3 + shadcn/ui component library
+- [x] Sidebar navigation with 4 pages (Home, Calculator, Alerts, Configurations)
+- [x] ACL brand colour scheme (blue + gold) with light and dark modes
+- [x] Centralised CSS token system (`globals.css`) — `--c-*` semantic vars, Tailwind HSL tokens, legacy aliases
+- [x] Alert event log with severity-based row coloring (red/orange/yellow/green/blue)
+- [x] Configurations page: alert rules CRUD, app settings, FinBERT model tuning
+
+### Phase 3 — Validation & Handover (Not started)
 **Goal:** Test with real data, document for handover to ACL team.
 
 - [ ] Backtest alert rules against historical FX/commodity data (2022–2025)
@@ -247,18 +263,35 @@ The project should define measurable outcomes to evaluate whether it delivered v
 ## 10. Session Handover Notes
 
 > **Instructions for the next AI session:**
-> Read this document fully before contributing. All design decisions documented above are finalized unless explicitly reopened. When a decision is reopened, add a note to Section 8 (Open Questions) and update the Document History table.
+> Read this document and `docs/implementation_details.md` in full before contributing. All design decisions are finalised unless explicitly reopened. When a decision is reopened, add a note to Section 8 (Open Questions) and update the Document History table.
 >
 > **Current status as of 2026-05-13:**
-> - Critical analysis of ACL AR 2024/25 completed ✅
-> - Solution scope refined and documented ✅
-> - Architecture and tech stack proposed (not finalized) ✅
-> - **Next step:** Resolve Open Questions (Section 8), then begin Phase 1 implementation starting with data source validation and database schema design.
+> - Phase 1 (backend + debug data layer + basic dashboard) ✅ Complete
+> - Phase 2 (FinBERT sentiment, live collectors, weather map, enhanced alerts) ✅ Complete
+> - UI refactor (Tailwind/shadcn, sidebar, brand colours, light/dark mode, alert severity) ✅ Complete
+> - **Next step:** Phase 3 — validation, backtesting, user acceptance testing, data source audit, user guide
+>
+> **Running the project:**
+> ```bash
+> # Backend (debug mode)
+> cd backend && uv run uvicorn app.main:app --reload
+> # http://localhost:8000 | Docs: http://localhost:8000/docs
+>
+> # Frontend
+> cd frontend && npm run dev
+> # http://localhost:5173
+> ```
+>
+> **Key environment variables** (`backend/.env`):
+> - `DEBUG=true` — uses generated data, skips live API calls
+> - `FX_API_KEY` — exchangerate-api.com (optional; required for live FX)
+> - `NEWSAPI_KEY` — newsapi.org (optional; required for live news)
+> - `SENTIMENT_ENABLED=true` — enables FinBERT scoring (downloads ~400 MB model on first use)
 >
 > **Files referenced:**
-> - `ACL_Cables_24_25_AR.pdf` — ACL Annual Report 2024/25 (source of all company data)
-> - This file: `ACL_ProcurementIntel_Project.md` — living project document
+> - `docs/implementation_details.md` — tech stack decisions and progress log (read alongside this file)
+> - `ACL_Cables_24_25_AR.pdf` — ACL Annual Report 2024/25 (source of company context)
 
 ---
 
-*Last updated: 2026-05-13 | Next action: Resolve Open Questions → Begin Phase 1*
+*Last updated: 2026-05-13 | Current phase: UI refactor complete — Phase 3 (validation & handover) next*

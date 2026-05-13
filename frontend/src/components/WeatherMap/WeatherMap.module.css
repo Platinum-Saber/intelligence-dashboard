@@ -1,0 +1,69 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.title { font-size: 16px; }
+
+.mapWrap {
+  height: 320px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+}
+
+.sectionTitle {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.portRow {
+  display: grid;
+  grid-template-columns: 10px 1fr 60px 60px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 12px;
+}
+.portRow:last-child { border-bottom: none; }
+
+.portDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.portName { color: var(--text); }
+.portRain { color: var(--text-muted); }
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.muted { color: var(--text-muted); font-size: 13px; }

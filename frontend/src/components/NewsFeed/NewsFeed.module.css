@@ -1,6 +1,6 @@
 .panel {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--c-border);
   border-radius: 10px;
   padding: 20px 24px;
   display: flex;
@@ -17,7 +17,7 @@
   border-radius: 20px;
   font-size: 11px;
   font-weight: 500;
-  border: 1px solid var(--border);
+  border: 1px solid var(--c-border);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -36,7 +36,7 @@
 
 .item {
   padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--c-border);
 }
 .item:last-child { border-bottom: none; }
 
@@ -52,6 +52,12 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.sentimentBadge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .time { font-size: 11px; color: var(--text-muted); }

@@ -74,7 +74,7 @@ export function FXPanel() {
 
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--c-border)" />
           <XAxis
             dataKey="date"
             tick={{ fill: "var(--text-muted)", fontSize: 11 }}
@@ -86,21 +86,21 @@ export function FXPanel() {
             width={52}
           />
           <Tooltip
-            contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8 }}
+            contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--c-border)", borderRadius: 8 }}
             labelStyle={{ color: "var(--text-muted)" }}
           />
           {avg && (
             <ReferenceLine
               y={avg}
-              stroke="var(--accent)"
+              stroke="var(--c-primary)"
               strokeDasharray="4 4"
-              label={{ value: `Avg ${avg.toFixed(1)}`, fill: "var(--accent)", fontSize: 11 }}
+              label={{ value: `Avg ${avg.toFixed(1)}`, fill: "var(--c-primary)", fontSize: 11 }}
             />
           )}
           <Line
             type="monotone"
             dataKey="rate"
-            stroke="var(--accent)"
+            stroke="var(--c-primary)"
             dot={false}
             strokeWidth={2}
           />

@@ -89,7 +89,7 @@ export function CommodityPanel() {
 
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--c-border)" />
           <XAxis
             dataKey="date"
             tick={{ fill: "var(--text-muted)", fontSize: 11 }}
@@ -103,7 +103,7 @@ export function CommodityPanel() {
           />
           <Tooltip
             formatter={(v) => [`$${(v as number).toLocaleString()}`, "Price USD/t"]}
-            contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8 }}
+            contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--c-border)", borderRadius: 8 }}
             labelStyle={{ color: "var(--text-muted)" }}
           />
           <Line type="monotone" dataKey="price" stroke={color} dot={false} strokeWidth={2} />

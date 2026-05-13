@@ -6,7 +6,7 @@ import styles from "./NewsFeed.module.css";
 const TOPICS = ["ALL", "FX", "COPPER", "ALUMINIUM", "TRADE", "LOGISTICS"] as const;
 
 const TOPIC_COLOR: Record<string, string> = {
-  FX: "var(--accent)",
+  FX: "var(--c-primary)",
   COPPER: "var(--orange)",
   ALUMINIUM: "#a78bfa",
   TRADE: "var(--yellow)",
@@ -56,6 +56,19 @@ export function NewsFeed() {
               {item.topic && (
                 <span className={styles.topicTag} style={{ color: TOPIC_COLOR[item.topic] ?? "var(--text-muted)" }}>
                   {item.topic}
+                </span>
+              )}
+              {item.sentiment && (
+                <span
+                  className={styles.sentimentBadge}
+                  style={{
+                    color: item.sentiment === "POSITIVE" ? "var(--green)"
+                         : item.sentiment === "NEGATIVE" ? "var(--red)"
+                         : "var(--text-muted)",
+                  }}
+                >
+                  {item.sentiment === "POSITIVE" ? "↑" : item.sentiment === "NEGATIVE" ? "↓" : "–"}
+                  {" "}{item.sentiment}
                 </span>
               )}
               <span className={styles.time}>{timeAgo(item.published_at)}</span>

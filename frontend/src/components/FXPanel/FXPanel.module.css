@@ -1,6 +1,6 @@
 .panel {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--c-border);
   border-radius: 10px;
   padding: 20px 24px;
   display: flex;
@@ -24,19 +24,19 @@
   padding: 4px 12px;
   border-radius: 6px;
   font-size: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--c-border);
   background: transparent;
   color: var(--text-muted);
   transition: all 0.15s;
 }
 
 .activeTab {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--c-primary);
+  border-color: var(--c-primary);
   color: #fff;
 }
 
-.tab:hover { border-color: var(--accent); color: var(--text); }
+.tab:hover { border-color: var(--c-primary); color: var(--text); }
 
 .stats {
   display: flex;

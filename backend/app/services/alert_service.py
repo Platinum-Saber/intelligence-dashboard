@@ -93,6 +93,26 @@ def check_alerts(db: Session) -> list[AlertEvent]:
             if flagged:
                 message = f"Flood risk {rule.threshold_text} in: {', '.join(flagged)}"
 
+        elif rule.metric == "news_sentiment" and rule.threshold_text:
+            # Trigger when a topic's negative score fraction exceeds a threshold
+            # threshold_text = "COPPER:0.6" → 60% negative articles in last 24h
+            topic_part, *pct_part = rule.threshold_text.split(":")
+            if pct_part:
+                threshold_pct = float(pct_part[0])
+                from app.services.sentiment_service import get_sentiment_summary
+                summaries = get_sentiment_summary(db, days=1)
+                for s in summaries:
+                    if s["topic"] == topic_part.upper():
+                        total = s["positive"] + s["negative"] + s["neutral"]
+                        if total > 0:
+                            neg_pct = s["negative"] / total
+                            if neg_pct >= threshold_pct:
+                                message = (
+                                    f"News sentiment warning: {topic_part} — "
+                                    f"{s['negative']}/{total} articles negative "
+                                    f"({neg_pct:.0%}) in last 24h"
+                                )
+
         if message:
             event = AlertEvent(
                 triggered_at=datetime.utcnow(),

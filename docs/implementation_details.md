@@ -11,6 +11,9 @@
 |---------|------|----------------|
 | 0.1 | 2026-05-13 | Initial draft — tech stack documented per phase, pre-implementation |
 | 0.2 | 2026-05-13 | Phase 1 fully implemented — backend, debug layer, and frontend complete |
+| 0.3 | 2026-05-13 | Phase 2 fully implemented — FinBERT sentiment, live collectors, weather map, alerts UI, cost history |
+| 0.4 | 2026-05-13 | UI refactor — shadcn/ui components, sidebar navigation, ACL brand colours, light/dark mode |
+| 0.5 | 2026-05-13 | CSS variable conflict fix, light/dark mode verified, alert severity coloring added |
 
 ---
 
@@ -39,7 +42,7 @@
 - Used `BackgroundScheduler` (sync threads) rather than `AsyncIOScheduler` to keep SQLAlchemy sessions simple.
 - In DEBUG mode the scheduler still starts but all collector jobs return early — preserves the real code path for testing.
 - Debug DB is auto-seeded on first startup if the `fx_rates` table is empty — no manual step needed.
-- Frontend uses CSS Modules + CSS variables (dark theme) rather than Tailwind — avoids build-time dependency complexity.
+- Frontend uses CSS Modules + CSS variables (dark theme) rather than Tailwind — avoids build-time dependency complexity. *(Tailwind added later in the UI refactor; CSS modules remain alongside Tailwind for existing components.)*
 
 ---
 
@@ -105,13 +108,57 @@
 
 | Task | Status | Notes |
 |------|--------|-------|
-| FinBERT news sentiment integration | Not started | |
-| Topic-filtered news feed with sentiment scores | Not started | |
-| Historical cost-impact analysis (what-if calculator) | Not started | |
-| Weather panel: district-level flood risk map | Not started | |
-| Supplier country weather (UAE, China, Vietnam ports) | Not started | Phase 1 already seeds port data; Phase 2 adds live fetch |
-| Alert engine expansion (sentiment + weather rules) | Not started | |
-| User-configurable alert thresholds | Not started | Backend CRUD already built; Phase 2 adds frontend UI |
+| FinBERT news sentiment integration | ✅ Done | `app/services/sentiment_service.py` — lazy-loaded, CPU inference, graceful fallback if disabled |
+| Topic-filtered news feed with sentiment scores | ✅ Done | `sentiment` badge on each news item; `SENTIMENT_ENABLED=false` in .env skips FinBERT |
+| Historical cost-impact analysis | ✅ Done | `GET /api/v1/calculator/history` + `CostHistory` area chart; shows landed cost over time |
+| Weather panel: district-level flood risk map | ✅ Done | Leaflet `CircleMarker` map centred on Sri Lanka; colour-coded by flood risk |
+| Supplier country weather (live) | ✅ Done | `weather_collector.py` using Open-Meteo (free, no key); scheduler runs hourly |
+| FX live collector | ✅ Done | `fx_collector.py` using exchangerate-api.com; requires `FX_API_KEY` in .env |
+| News live collector | ✅ Done | `news_collector.py` using NewsAPI.org; requires `NEWSAPI_KEY` in .env |
+| Commodity live collector | ✅ Done | `commodity_collector.py` using Yahoo Finance (`HG=F`, `ALI=F`); free, no key |
+| Sentiment-based alert rules | ✅ Done | `SENTIMENT_NEGATIVE` rule type; threshold format: `TOPIC:pct` (e.g. `COPPER:0.60`) |
+| Alert rules management UI | ✅ Done | `AlertsPanel` component — list, enable/disable, create, delete, manual check, event log |
+| News sentiment summary endpoint | ✅ Done | `GET /api/v1/news/sentiment-summary` + `SentimentBar` stacked bar per topic |
+
+**Decisions made during Phase 2:**
+- torch `2.12.0+cpu` (117 MB) installed via PyTorch CPU wheel index — avoids 2.5 GB GPU wheel.
+- FinBERT loads lazily on first call; `SENTIMENT_ENABLED=false` skips it entirely. Model download (~400 MB) happens on first use.
+- Open-Meteo weather collector runs in all modes (debug and prod) — it's free and keyless, making it safe to always run.
+- All other live collectors are gated: FX requires `FX_API_KEY`, news requires `NEWSAPI_KEY`, commodities uses an unofficial Yahoo Finance endpoint (no key, but fragile — mark as paid-fallback candidate in Phase 3 audit).
+- Leaflet map uses `CircleMarker` (not default Marker) to avoid Vite icon resolution issues.
+- `CostHistory` joins daily commodity prices to nearest FX rate by calendar date — lookback of up to 7 days if FX reading is missing for a given day.
+
+### UI Refactor Progress (completed 2026-05-13)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Tailwind CSS v3 + PostCSS config | ✅ Done | `tailwind.config.js`, `postcss.config.cjs`; `darkMode: ["class"]` |
+| shadcn/ui components | ✅ Done | Button, Badge, Card, Input, Label, Switch, Select, Dialog, Tabs, Separator, ScrollArea, Tooltip, Skeleton — all hand-written in `src/components/ui/` |
+| `@/` path alias | ✅ Done | `vite.config.ts` + `tsconfig.app.json` paths |
+| Centralised CSS token system | ✅ Done | `src/styles/globals.css` — `--c-*` semantic vars + Tailwind raw HSL tokens; `:root` light, `.dark` dark |
+| ACL brand colours | ✅ Done | Blue `hsl(220,77%,48%)`, Gold `hsl(43,92%,52%)` wired as primary and accent |
+| Legacy CSS var aliases | ✅ Done | `--bg`, `--surface`, `--surface-2`, `--text`, `--text-muted`, `--green`, `--red`, `--yellow`, `--orange` aliased to `--c-*`. `--border` and `--accent` are NOT aliased (see decisions below). |
+| CSS module updates | ✅ Done | All 8 CSS modules updated: `var(--border)` → `var(--c-border)`, `var(--accent)` → `var(--c-primary)`. Recharts inline props updated in `FXPanel.tsx`, `CommodityPanel.tsx`, `CostHistory.tsx`. |
+| Light / dark mode | ✅ Done | `useTheme` hook; persists to `localStorage`; respects `prefers-color-scheme` on first visit. Light mode shows white/near-white backgrounds. |
+| Sidebar navigation | ✅ Done | `AppSidebar.tsx` — branded dark ACL sidebar, 4 nav items, theme toggle, mobile hamburger |
+| React Router v7 | ✅ Done | `BrowserRouter` + 4 routes in `App.tsx` |
+| Home page | ✅ Done | All stat panels in responsive grid |
+| Calculator page | ✅ Done | shadcn form with Select/Input/Label; methodology card; CostHistory chart |
+| Alerts page | ✅ Done | Event table with search, row limit selector, and severity-based row coloring |
+| Alert severity coloring | ✅ Done | Fetches rules + events; joins by `rule_id`; colors rows: Critical→red, High→orange, Medium→yellow, Favourable→green, FX→blue |
+| Configurations page | ✅ Done | Tabs: Alert Rules (CRUD with Dialog), App Settings (env vars), Model Tuning (FinBERT + manual scoring) |
+
+**Decisions made during UI refactor:**
+- Sidebar is always dark (ACL branded navy) in both light and dark modes — consistent with enterprise dashboard conventions.
+- shadcn components written by hand (no `npx shadcn add`) to avoid interactive CLI in Windows PowerShell.
+- `postcss.config.cjs` (not `.js`) because `package.json` has `"type": "module"` — CJS extension bypasses ESM parsing.
+- `baseUrl`/`paths` required `"ignoreDeprecations": "6.0"` in TypeScript 6 to suppress the deprecation warning while keeping the `@/` alias working.
+
+**Decisions made during CSS fix (v0.5):**
+- `--border` and `--accent` are intentionally NOT added to the legacy alias section. These names are reserved by Tailwind's `hsl(var(--border))` pattern; aliasing them to full `hsl()` values would create `hsl(hsl(...))` — invalid CSS — breaking all Tailwind-generated borders and accent classes.
+- Instead, existing CSS modules were updated to reference `var(--c-border)` and `var(--c-primary)` directly; Recharts `stroke` and `contentStyle` props similarly updated.
+- `html, body` background uses `var(--c-bg)` and `var(--c-text)` directly rather than `@apply bg-background text-foreground` — avoids Tailwind processing indirection and ensures light mode (white) and dark mode (dark navy) reliably apply.
+- Global `input`/`select` element styles added to `globals.css` using `--c-*` vars so native form elements adapt to both modes. Scoped to elements without a Tailwind class prefix to avoid fighting shadcn Input component styles.
 
 ### Phase 3 Progress
 
@@ -152,4 +199,19 @@ uv run python -m debug.seed
 
 ---
 
-*Last updated: 2026-05-13 | Current phase: Phase 1 complete — Phase 2 next*
+### Trigger FinBERT scoring manually
+```bash
+cd backend
+# via API (POST, returns count scored):
+curl -X POST http://localhost:8000/api/v1/news/score-now
+# or directly:
+uv run python -c "
+from app.database import SessionLocal
+from app.services.sentiment_service import score_unscored_news
+db = SessionLocal(); print(score_unscored_news(db, 200)); db.close()
+"
+```
+
+---
+
+*Last updated: 2026-05-13 | Current phase: UI refactor complete (v0.5) — Phase 3 (validation & handover) next*

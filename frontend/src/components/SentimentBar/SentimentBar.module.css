@@ -1,0 +1,60 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.header h2 { font-size: 16px; }
+
+.legend { display: flex; gap: 12px; font-size: 11px; }
+.legendPos  { color: var(--green); font-weight: 600; }
+.legendNeut { color: var(--text-muted); }
+.legendNeg  { color: var(--red); font-weight: 600; }
+
+.bars { display: flex; flex-direction: column; gap: 10px; }
+
+.row {
+  display: grid;
+  grid-template-columns: 80px 1fr 90px;
+  align-items: center;
+  gap: 10px;
+}
+
+.topic {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.barTrack {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  display: flex;
+  overflow: hidden;
+}
+
+.barPos  { background: var(--green);   height: 100%; transition: width 0.4s; }
+.barNeut { background: var(--text-muted); opacity: 0.4; height: 100%; transition: width 0.4s; }
+.barNeg  { background: var(--red);     height: 100%; transition: width 0.4s; }
+
+.counts {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.hint { font-size: 11px; color: var(--text-muted); font-style: italic; }
+.muted { color: var(--text-muted); font-size: 13px; }

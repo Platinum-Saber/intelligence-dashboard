@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── ACL Brand palette ─────────────────────────────────────────────────────
+   Primary blue  : hsl(220, 77%, 48%)  — ACL Cables logo blue
+   Gold accent   : hsl(43,  92%, 52%)  — ACL Cables logo gold
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    /* ── Tailwind / shadcn semantic tokens (light mode) ── */
+    --background:           220 20% 97%;
+    --foreground:           220 15% 12%;
+
+    --card:                 0 0% 100%;
+    --card-foreground:      220 15% 12%;
+
+    --popover:              0 0% 100%;
+    --popover-foreground:   220 15% 12%;
+
+    --primary:              220 77% 48%;        /* ACL blue */
+    --primary-foreground:   0 0% 100%;
+
+    --secondary:            220 14% 92%;
+    --secondary-foreground: 220 15% 20%;
+
+    --muted:                220 14% 92%;
+    --muted-foreground:     220 10% 46%;
+
+    --accent:               43 92% 52%;         /* ACL gold */
+    --accent-foreground:    220 15% 12%;
+
+    --destructive:          0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border:               220 13% 86%;
+    --input:                220 13% 86%;
+    --ring:                 220 77% 48%;
+
+    --radius:               0.625rem;
+
+    /* ── Sidebar ── */
+    --sidebar-background:          220 35% 18%;
+    --sidebar-foreground:          220 20% 88%;
+    --sidebar-primary:             220 77% 58%;
+    --sidebar-primary-foreground:  0 0% 100%;
+    --sidebar-accent:              220 30% 26%;
+    --sidebar-accent-foreground:   220 20% 95%;
+    --sidebar-border:              220 25% 26%;
+    --sidebar-ring:                220 77% 58%;
+
+    /* ── Semantic chart / status tokens (direct hsl() values) ── */
+    --c-bg:           hsl(220, 20%, 97%);
+    --c-surface:      hsl(0, 0%, 100%);
+    --c-surface-2:    hsl(220, 14%, 92%);
+    --c-border:       hsl(220, 13%, 86%);
+    --c-text:         hsl(220, 15%, 12%);
+    --c-text-muted:   hsl(220, 10%, 46%);
+
+    --c-primary:      hsl(220, 77%, 48%);
+    --c-primary-dim:  hsl(220, 77%, 38%);
+    --c-gold:         hsl(43,  92%, 52%);
+    --c-gold-dim:     hsl(43,  92%, 42%);
+
+    --c-green:        hsl(142, 71%, 45%);
+    --c-red:          hsl(0,   72%, 51%);
+    --c-orange:       hsl(27,  87%, 55%);
+    --c-yellow:       hsl(43,  92%, 52%);
+    --c-purple:       hsl(262, 83%, 68%);
+
+    /* chart series */
+    --c-chart-1:      hsl(220, 77%, 58%);
+    --c-chart-2:      hsl(43,  92%, 52%);
+    --c-chart-3:      hsl(142, 71%, 45%);
+    --c-chart-4:      hsl(27,  87%, 55%);
+    --c-chart-5:      hsl(262, 83%, 68%);
+
+    /* ── Legacy aliases — keeps existing CSS modules working ──
+       NOTE: --border and --accent are intentionally NOT aliased here;
+       they stay as raw HSL numbers so Tailwind's hsl(var(--border)) works.
+       CSS modules must use var(--c-border) and var(--c-primary) directly.  ── */
+    --bg:         var(--c-bg);
+    --surface:    var(--c-surface);
+    --surface-2:  var(--c-surface-2);
+    --text:       var(--c-text);
+    --text-muted: var(--c-text-muted);
+    --green:      var(--c-green);
+    --red:        var(--c-red);
+    --yellow:     var(--c-yellow);
+    --orange:     var(--c-orange);
+  }
+
+  .dark {
+    /* ── Tailwind / shadcn semantic tokens (dark mode) ── */
+    --background:           222 28% 9%;
+    --foreground:           220 15% 90%;
+
+    --card:                 222 25% 13%;
+    --card-foreground:      220 15% 90%;
+
+    --popover:              222 25% 13%;
+    --popover-foreground:   220 15% 90%;
+
+    --primary:              220 77% 58%;
+    --primary-foreground:   0 0% 100%;
+
+    --secondary:            222 20% 18%;
+    --secondary-foreground: 220 15% 80%;
+
+    --muted:                222 20% 18%;
+    --muted-foreground:     220 10% 55%;
+
+    --accent:               43 92% 52%;
+    --accent-foreground:    220 15% 12%;
+
+    --destructive:          0 63% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border:               222 20% 20%;
+    --input:                222 20% 20%;
+    --ring:                 220 77% 58%;
+
+    /* ── Sidebar ── */
+    --sidebar-background:          222 30% 7%;
+    --sidebar-foreground:          220 20% 80%;
+    --sidebar-primary:             220 77% 58%;
+    --sidebar-primary-foreground:  0 0% 100%;
+    --sidebar-accent:              222 25% 14%;
+    --sidebar-accent-foreground:   220 20% 95%;
+    --sidebar-border:              222 25% 16%;
+    --sidebar-ring:                220 77% 58%;
+
+    /* ── Semantic chart / status tokens ── */
+    --c-bg:           hsl(222, 28%, 9%);
+    --c-surface:      hsl(222, 25%, 13%);
+    --c-surface-2:    hsl(222, 20%, 18%);
+    --c-border:       hsl(222, 20%, 20%);
+    --c-text:         hsl(220, 15%, 90%);
+    --c-text-muted:   hsl(220, 10%, 55%);
+
+    --c-primary:      hsl(220, 77%, 58%);
+    --c-primary-dim:  hsl(220, 77%, 45%);
+    --c-gold:         hsl(43,  92%, 52%);
+    --c-gold-dim:     hsl(43,  92%, 40%);
+
+    --c-green:        hsl(142, 71%, 45%);
+    --c-red:          hsl(0,   72%, 55%);
+    --c-orange:       hsl(27,  87%, 58%);
+    --c-yellow:       hsl(43,  92%, 52%);
+    --c-purple:       hsl(262, 83%, 72%);
+
+    /* chart series */
+    --c-chart-1:      hsl(220, 77%, 62%);
+    --c-chart-2:      hsl(43,  92%, 52%);
+    --c-chart-3:      hsl(142, 71%, 48%);
+    --c-chart-4:      hsl(27,  87%, 60%);
+    --c-chart-5:      hsl(262, 83%, 72%);
+
+    /* ── Legacy aliases ── */
+    --bg:         var(--c-bg);
+    --surface:    var(--c-surface);
+    --surface-2:  var(--c-surface-2);
+    --text:       var(--c-text);
+    --text-muted: var(--c-text-muted);
+    --green:      var(--c-green);
+    --red:        var(--c-red);
+    --yellow:     var(--c-yellow);
+    --orange:     var(--c-orange);
+  }
+
+  * {
+    border-color: var(--c-border);
+    box-sizing: border-box;
+  }
+
+  html, body {
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Native input/select adapt to theme */
+  input:not([class*="Input"]),
+  select {
+    background: var(--c-surface-2);
+    border: 1px solid var(--c-border);
+    color: var(--c-text);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  input:not([class*="Input"]):focus,
+  select:focus {
+    outline: none;
+    border-color: var(--c-primary);
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--c-text-muted); }
+}

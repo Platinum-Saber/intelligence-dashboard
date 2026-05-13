@@ -92,3 +92,19 @@ export interface LandedCostResponse {
   total_lkr: number;
   calculated_at: string;
 }
+
+export interface CostHistoryPoint {
+  date: string;
+  lme_price_usd: number;
+  usd_lkr: number;
+  landed_cost_lkr: number;
+}
+
+export interface SentimentSummary {
+  topic: string;
+  positive: number;
+  negative: number;
+  neutral: number;
+  unscored: number;
+  period_days: number;
+}

@@ -105,6 +105,11 @@ def _render(template: str, **kw) -> str:
     )
 
 
+def _fake_sentiment() -> str:
+    """Weighted distribution: 40% positive, 35% negative, 25% neutral."""
+    return random.choices(["POSITIVE", "NEGATIVE", "NEUTRAL"], weights=[40, 35, 25])[0]
+
+
 def generate_news(days: int = 90) -> list[NewsItem]:
     records: list[NewsItem] = []
     base_ts = datetime.utcnow() - timedelta(days=days)
@@ -125,7 +130,7 @@ def generate_news(days: int = 90) -> list[NewsItem]:
                 source="debug",
                 topic=topic,
                 relevance_score=round(random.uniform(0.4, 1.0), 2),
-                sentiment=None,  # Phase 2
+                sentiment=_fake_sentiment(),
             ))
 
     return records

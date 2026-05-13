@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.news import NewsItemOut
-from app.services import news_service
+from app.schemas.calculator import SentimentSummary
+from app.services import news_service, sentiment_service
 
 router = APIRouter()
 
@@ -16,3 +17,18 @@ def recent_news(
     db: Session = Depends(get_db),
 ):
     return news_service.get_recent(db, days=days, topic=topic, limit=limit)
+
+
+@router.get("/sentiment-summary", response_model=list[SentimentSummary])
+def sentiment_summary(
+    days: int = Query(default=7, ge=1, le=90),
+    db: Session = Depends(get_db),
+):
+    return sentiment_service.get_sentiment_summary(db, days=days)
+
+
+@router.post("/score-now", status_code=202)
+def score_now(db: Session = Depends(get_db)):
+    """Manually trigger FinBERT scoring of unscored news items."""
+    scored = sentiment_service.score_unscored_news(db)
+    return {"scored": scored}

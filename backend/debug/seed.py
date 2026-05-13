@@ -55,6 +55,15 @@ def _default_alert_rules() -> list[AlertRule]:
             enabled=True,
             email_recipients="",
         ),
+        AlertRule(
+            name="Copper news sentiment >60% negative (24h)",
+            rule_type="SENTIMENT_NEGATIVE",
+            metric="news_sentiment",
+            comparison="gt",
+            threshold_text="COPPER:0.60",
+            enabled=True,
+            email_recipients="",
+        ),
     ]
 
 
