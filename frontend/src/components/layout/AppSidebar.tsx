@@ -4,6 +4,7 @@ import {
   Calculator,
   Bell,
   Settings2,
+  FlaskConical,
   Sun,
   Moon,
   Menu,
@@ -17,6 +18,7 @@ const NAV = [
   { to: "/",            label: "Home",           icon: LayoutDashboard },
   { to: "/calculator",  label: "Calculator",     icon: Calculator },
   { to: "/alerts",      label: "Alerts",         icon: Bell },
+  { to: "/backtest",    label: "Backtesting",    icon: FlaskConical },
   { to: "/config",      label: "Configurations", icon: Settings2 },
 ]
 
@@ -104,7 +106,7 @@ export function AppSidebar() {
           <div className="px-3">
             <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-[var(--c-gold)] opacity-70">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] animate-pulse" />
-              Phase 2 · Debug
+              Phase 3 · Debug
             </span>
           </div>
         </div>

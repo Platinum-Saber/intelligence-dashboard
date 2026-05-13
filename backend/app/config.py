@@ -6,7 +6,7 @@ class Settings(BaseSettings):
 
     debug: bool = True
     database_url: str = "sqlite:///./procurement_intel.db"
-    seed_days: int = 90
+    seed_days: int = 365
 
     # Phase 2: live data feed keys
     fx_api_key: str = ""           # exchangerate-api.com

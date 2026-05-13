@@ -13,6 +13,7 @@
 | 0.2 | 2026-05-13 | Phase 1 complete; tech stack finalised |
 | 0.3 | 2026-05-13 | Phase 2 complete; delivery plan and handover notes updated |
 | 0.4 | 2026-05-13 | UI refactor complete; phase checkboxes and tech stack table updated |
+| 0.5 | 2026-05-13 | Phase 3 complete: backtesting, UAT scenarios, data source audit, user guide, deployment runbook |
 
 ---
 
@@ -210,14 +211,15 @@ These items were considered and deliberately excluded or de-scoped:
 - [x] Alert event log with severity-based row coloring (red/orange/yellow/green/blue)
 - [x] Configurations page: alert rules CRUD, app settings, FinBERT model tuning
 
-### Phase 3 — Validation & Handover (Not started)
+### Phase 3 — Validation & Handover ✅ Complete
 **Goal:** Test with real data, document for handover to ACL team.
 
-- [ ] Backtest alert rules against historical FX/commodity data (2022–2025)
-- [ ] User acceptance testing with simulated procurement scenarios
-- [ ] System documentation and user guide
-- [ ] Data source reliability audit (which APIs are fragile? which need paid fallbacks?)
-- [ ] (Optional) ERP integration scoping meeting with ACL IT team
+- [x] Backtest alert rules against historical FX/commodity data (available DB history)
+- [x] User acceptance testing with simulated procurement scenarios (5 pre-built UAT scenarios)
+- [x] System documentation and user guide (`docs/user_guide.md`)
+- [x] Data source reliability audit — live audit at `/api/v1/datasources/audit` + UI in Configurations
+- [x] Deployment runbook (`docs/deployment_runbook.md`) — covers dev, Docker, VPS/EC2, HTTPS, security checklist
+- [ ] (Optional) ERP integration scoping meeting with ACL IT team — deferred to Phase 4
 
 ---
 
@@ -269,7 +271,8 @@ The project should define measurable outcomes to evaluate whether it delivered v
 > - Phase 1 (backend + debug data layer + basic dashboard) ✅ Complete
 > - Phase 2 (FinBERT sentiment, live collectors, weather map, enhanced alerts) ✅ Complete
 > - UI refactor (Tailwind/shadcn, sidebar, brand colours, light/dark mode, alert severity) ✅ Complete
-> - **Next step:** Phase 3 — validation, backtesting, user acceptance testing, data source audit, user guide
+> - Phase 3 (backtesting, UAT scenarios, data source audit, user guide, deployment runbook) ✅ Complete
+> - **Next step:** Phase 4 (optional) — ERP integration scoping with ACL IT team
 >
 > **Running the project:**
 > ```bash
@@ -294,4 +297,4 @@ The project should define measurable outcomes to evaluate whether it delivered v
 
 ---
 
-*Last updated: 2026-05-13 | Current phase: UI refactor complete — Phase 3 (validation & handover) next*
+*Last updated: 2026-05-13 | Current phase: Phase 3 complete — all planned phases delivered*

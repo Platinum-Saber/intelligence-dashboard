@@ -5,6 +5,7 @@ import { HomePage } from "@/pages/HomePage"
 import { CalculatorPage } from "@/pages/CalculatorPage"
 import { AlertsPage } from "@/pages/AlertsPage"
 import { ConfigPage } from "@/pages/ConfigPage"
+import { BacktestPage } from "@/pages/BacktestPage"
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -15,6 +16,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/calculator":  "Landed Cost Calculator",
   "/alerts":      "Alert Event Log",
   "/config":      "Configurations",
+  "/backtest":    "Backtesting & UAT",
 }
 
 function AppShell() {
@@ -28,7 +30,7 @@ function AppShell() {
           {/* Page title — derived from route */}
           <PageTitle />
           <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-[var(--c-gold)] border border-[var(--c-gold)]/30 rounded px-2 py-1 bg-[var(--c-gold)]/5">
-            Phase 2 · Debug Mode
+            Phase 3 · Debug Mode
           </span>
         </header>
 
@@ -39,6 +41,7 @@ function AppShell() {
             <Route path="/calculator" element={<CalculatorPage />} />
             <Route path="/alerts"     element={<AlertsPage />} />
             <Route path="/config"     element={<ConfigPage />} />
+            <Route path="/backtest"   element={<BacktestPage />} />
           </Routes>
         </main>
       </div>

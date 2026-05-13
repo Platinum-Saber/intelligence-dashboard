@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine, SessionLocal
 from app.models import FXRate  # ensure all models are registered
-from app.routers import fx, commodities, weather, news, alerts, calculator
+from app.routers import fx, commodities, weather, news, alerts, calculator, backtest, datasources
 from app.scheduler.jobs import start_scheduler
 
 
@@ -47,6 +47,8 @@ app.include_router(weather.router, prefix="/api/v1/weather", tags=["Weather"])
 app.include_router(news.router, prefix="/api/v1/news", tags=["News"])
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(calculator.router, prefix="/api/v1/calculator", tags=["Calculator"])
+app.include_router(backtest.router, prefix="/api/v1/backtest", tags=["Backtest"])
+app.include_router(datasources.router, prefix="/api/v1/datasources", tags=["DataSources"])
 
 
 @app.get("/health")

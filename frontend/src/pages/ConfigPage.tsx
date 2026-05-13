@@ -18,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Trash2, Zap, Brain } from "lucide-react"
+import { Plus, Trash2, Zap, Brain, Activity, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
+import { getDataSourceAudit, type DataSourceStatus } from "@/api/backtest"
 
 const RULE_TYPES = ["FX_THRESHOLD", "COMMODITY_DIP", "WEATHER_RISK", "SENTIMENT_NEGATIVE"] as const
 const METRICS: Record<string, string[]> = {
@@ -60,10 +61,15 @@ export function ConfigPage() {
         <TabsTrigger value="rules">Alert Rules</TabsTrigger>
         <TabsTrigger value="app">App Settings</TabsTrigger>
         <TabsTrigger value="model">Model Tuning</TabsTrigger>
+        <TabsTrigger value="datasources">
+          <Activity size={13} className="mr-1" />
+          Data Sources
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="rules"><AlertRulesTab /></TabsContent>
       <TabsContent value="app"><AppSettingsTab /></TabsContent>
       <TabsContent value="model"><ModelTuningTab /></TabsContent>
+      <TabsContent value="datasources"><DataSourceAuditTab /></TabsContent>
     </Tabs>
   )
 }
@@ -322,6 +328,110 @@ function AppSettingsTab() {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function DataSourceAuditTab() {
+  const audit = useQuery({
+    queryKey: ["datasource-audit"],
+    queryFn: getDataSourceAudit,
+    staleTime: 60_000,
+  })
+
+  function statusIcon(status: string) {
+    if (status === "ok") return <CheckCircle2 size={16} className="text-green-500 shrink-0" />
+    if (status === "degraded") return <AlertTriangle size={16} className="text-yellow-500 shrink-0" />
+    return <XCircle size={16} className="text-red-500 shrink-0" />
+  }
+
+  function fragilityBadge(rating: DataSourceStatus["fragility_rating"]) {
+    const map = {
+      LOW: "bg-green-500/15 text-green-600 dark:text-green-400",
+      MEDIUM: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",
+      HIGH: "bg-red-500/15 text-red-500",
+    }
+    return (
+      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${map[rating]}`}>
+        {rating}
+      </span>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity size={18} />
+            Data Source Reliability Audit
+          </CardTitle>
+          <CardDescription>
+            Review which external APIs are in use, their fragility, and recommended paid fallbacks for production.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {audit.isLoading && <p className="text-sm text-muted-foreground">Loading audit…</p>}
+          {audit.isError && <p className="text-sm text-red-500">Could not load audit data.</p>}
+
+          {audit.data && (
+            <div className="space-y-4">
+              {audit.data.sources.map((src) => (
+                <div key={src.source_name} className="rounded-lg border border-[var(--c-border)] p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      {statusIcon(src.status)}
+                      <span className="font-medium text-sm text-foreground">{src.source_name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {fragilityBadge(src.fragility_rating)}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        src.status === "ok"
+                          ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                          : src.status === "degraded"
+                          ? "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400"
+                          : "bg-red-500/15 text-red-500"
+                      }`}>
+                        {src.status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <p className="text-muted-foreground uppercase tracking-wide font-semibold mb-0.5">Data points (24h)</p>
+                      <p className="font-medium">{src.data_points_24h}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground uppercase tracking-wide font-semibold mb-0.5">Last reading</p>
+                      <p className="font-medium">
+                        {src.last_data_timestamp
+                          ? new Date(src.last_data_timestamp).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+                          : "No data"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground uppercase tracking-wide font-semibold mb-0.5">Paid fallback</p>
+                      <p className="font-medium">{src.paid_fallback ?? "None needed"}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground border-t border-[var(--c-border)] pt-2">
+                    <span className="font-semibold text-foreground">Risk: </span>{src.fragility_reason}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">Note: </span>{src.notes}
+                  </p>
+                </div>
+              ))}
+
+              <p className="text-xs text-muted-foreground text-right">
+                Audited at {new Date(audit.data.audit_timestamp).toLocaleString("en-GB")}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

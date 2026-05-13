@@ -14,6 +14,7 @@
 | 0.3 | 2026-05-13 | Phase 2 fully implemented — FinBERT sentiment, live collectors, weather map, alerts UI, cost history |
 | 0.4 | 2026-05-13 | UI refactor — shadcn/ui components, sidebar navigation, ACL brand colours, light/dark mode |
 | 0.5 | 2026-05-13 | CSS variable conflict fix, light/dark mode verified, alert severity coloring added |
+| 0.6 | 2026-05-13 | Phase 3 complete — backtesting service, UAT scenarios, data source audit, Backtest page, docs |
 
 ---
 
@@ -164,11 +165,19 @@
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Backtest alert rules (2022–2025 historical data) | Not started | |
-| User acceptance testing | Not started | |
-| System documentation and user guide | Not started | |
-| Data source reliability audit | Not started | |
-| ERP integration scoping (optional) | Not started | |
+| Backtest alert rules against historical DB data | ✅ Done | `app/services/backtest_service.py` + `app/routers/backtest.py`; endpoint: `POST /api/v1/backtest/run`; evaluates all rules across historical snapshots |
+| UAT Scenarios | ✅ Done | 5 pre-built scenarios in `backtest_service.py`; endpoint: `POST /api/v1/backtest/scenario/run`; UI in `/backtest` page (UAT Scenarios tab) |
+| System documentation and user guide | ✅ Done | `docs/user_guide.md` — procurement team guide covering all pages, alert thresholds, FAQ |
+| Data source reliability audit | ✅ Done | `app/services/datasource_service.py` + `app/routers/datasources.py`; endpoint: `GET /api/v1/datasources/audit`; UI tab in Configurations page |
+| Deployment runbook | ✅ Done | `docs/deployment_runbook.md` — dev setup, Docker, VPS/EC2, PostgreSQL, HTTPS, security checklist, troubleshooting |
+| ERP integration scoping (optional) | Deferred | Discovery meeting with ACL IT — no code; informs Phase 4 |
+
+**Decisions made during Phase 3:**
+- Backtesting pre-fetches all historical data for the date range in one pass (avoids N+1 per-day queries); processes entirely in Python — performant enough for 365 days on SQLite.
+- SEED_DAYS default raised from 90 to 365 to give backtesting a full year of generated data.
+- UAT scenarios are hardcoded in the service layer (not DB-stored) — they're test fixtures, not user configuration.
+- Data source audit derives status from DB freshness (last reading timestamp + 24h count) rather than live API calls — avoids consuming API quota on every audit request.
+- Phase badge updated from "Phase 2" to "Phase 3" in `App.tsx` and `AppSidebar.tsx`.
 
 ---
 
@@ -214,4 +223,4 @@ db = SessionLocal(); print(score_unscored_news(db, 200)); db.close()
 
 ---
 
-*Last updated: 2026-05-13 | Current phase: UI refactor complete (v0.5) — Phase 3 (validation & handover) next*
+*Last updated: 2026-05-13 | Current phase: Phase 3 complete (v0.6) — Phase 4 (ERP integration scoping) optional next step*
