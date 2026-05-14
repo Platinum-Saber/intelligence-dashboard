@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from sqlalchemy.orm import Session
 
@@ -44,7 +44,7 @@ def get_latest_all(db: Session) -> list[WeatherLatest]:
 
 
 def get_history(db: Session, location_name: str, days: int = 30) -> list[WeatherReadingOut]:
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
     rows = (
         db.query(WeatherReading)
         .filter(WeatherReading.location_name == location_name, WeatherReading.timestamp >= since)

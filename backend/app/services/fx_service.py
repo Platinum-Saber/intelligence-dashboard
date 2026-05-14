@@ -19,7 +19,13 @@ def get_history(db: Session, days: int = 30) -> list[FXRateOut]:
         .order_by(FXRate.timestamp.asc())
         .all()
     )
-    return [FXRateOut.model_validate(r) for r in rows]
+    # Keep only the latest reading per calendar date so intraday scheduler
+    # runs don't create duplicate x-axis points on charts.
+    by_date: dict = {}
+    for r in rows:
+        by_date[r.timestamp.date()] = r
+    deduped = sorted(by_date.values(), key=lambda r: r.timestamp)
+    return [FXRateOut.model_validate(r) for r in deduped]
 
 
 def get_summary(db: Session) -> FXSummary:

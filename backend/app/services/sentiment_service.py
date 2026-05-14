@@ -13,6 +13,11 @@ from app.config import settings
 if TYPE_CHECKING:
     from transformers import Pipeline
 
+try:
+    from transformers import pipeline
+except ImportError:
+    pipeline = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 _pipeline: "Pipeline | None" = None
@@ -27,9 +32,10 @@ def _get_pipeline() -> "Pipeline | None":
         return _pipeline
     _load_attempted = True
     try:
-        from transformers import pipeline as hf_pipeline
+        if pipeline is None:
+            raise ImportError("transformers not available")
         logger.info("[sentiment] Loading FinBERT model (first run: downloads ~400 MB)…")
-        _pipeline = hf_pipeline(
+        _pipeline = pipeline(
             "sentiment-analysis",
             model="ProsusAI/finbert",
             device=-1,          # CPU
@@ -93,11 +99,11 @@ def score_unscored_news(db: Session, batch_size: int = 50) -> int:
 
 def get_sentiment_summary(db: Session, days: int = 7) -> list[dict]:
     """Aggregated sentiment counts per topic for the past N days."""
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, UTC
     from app.models.news import NewsItem
     from sqlalchemy import func
 
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
 
     rows = (
         db.query(

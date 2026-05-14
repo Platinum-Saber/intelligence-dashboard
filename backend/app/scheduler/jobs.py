@@ -4,6 +4,7 @@ Collectors run live in production; in DEBUG mode they log but don't hit external
 (exception: Open-Meteo weather which is free and keyless — runs regardless of DEBUG).
 """
 import logging
+from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -127,10 +128,11 @@ def _check_alerts() -> None:
 # ── Startup ───────────────────────────────────────────────────────────────────
 
 def start_scheduler() -> None:
-    scheduler.add_job(_collect_fx,          "interval", minutes=15,  id="collect_fx")
-    scheduler.add_job(_collect_commodities, "interval", hours=1,     id="collect_commodities")
-    scheduler.add_job(_collect_weather,     "interval", hours=1,     id="collect_weather")
-    scheduler.add_job(_collect_news,        "interval", hours=1,     id="collect_news")
+    now = datetime.now()
+    scheduler.add_job(_collect_fx,          "interval", minutes=20,  id="collect_fx",          next_run_time=now)
+    scheduler.add_job(_collect_commodities, "interval", hours=1,     id="collect_commodities", next_run_time=now)
+    scheduler.add_job(_collect_weather,     "interval", hours=1,     id="collect_weather",     next_run_time=now)
+    scheduler.add_job(_collect_news,        "interval", hours=3,     id="collect_news",        next_run_time=now)
     scheduler.add_job(_score_sentiment,     "interval", hours=2,     id="score_sentiment")
     scheduler.add_job(_check_alerts,        "interval", minutes=15,  id="check_alerts")
     scheduler.start()

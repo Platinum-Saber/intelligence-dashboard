@@ -15,6 +15,9 @@
 | 0.4 | 2026-05-13 | UI refactor — shadcn/ui components, sidebar navigation, ACL brand colours, light/dark mode |
 | 0.5 | 2026-05-13 | CSS variable conflict fix, light/dark mode verified, alert severity coloring added |
 | 0.6 | 2026-05-13 | Phase 3 complete — backtesting service, UAT scenarios, data source audit, Backtest page, docs |
+| 0.7 | 2026-05-14 | Bug fixes — unit test infrastructure added; `sentiment_service.py` pipeline import fix; `datetime.utcnow()` deprecation resolved across all services and tests |
+| 0.8 | 2026-05-14 | Production config — Docker Compose PostgreSQL/TimescaleDB enabled; `psycopg2-binary` added; `.dockerignore` created; live API keys wired for FX and News; scheduler intervals tuned; collectors fire on startup; unused TS import fixed |
+| 0.9 | 2026-05-14 | Production data fixes — timezone mismatch resolved; news collector extended to 24h; historical backfill script; daily deduplication across all chart series; landed cost alert engine; 4 live alert rules; FinBERT enabled; App Settings live endpoint; UAT scenarios redesigned |
 
 ---
 
@@ -181,6 +184,51 @@
 
 ---
 
+### Bug Fixes (2026-05-14)
+
+| Fix | Files Changed | Notes |
+|-----|---------------|-------|
+| Unit test infrastructure | `pyproject.toml` | Added `pytest` as a dev dependency (`uv add --dev pytest`); added `[tool.pytest.ini_options] pythonpath = ["."]` so pytest resolves the `app` package |
+| `sentiment_service` pipeline mockability | `app/services/sentiment_service.py` | `from transformers import pipeline` moved to module level (with `try/except ImportError` fallback); previously a local import inside `_get_pipeline()` meant `patch("app.services.sentiment_service.pipeline")` raised `AttributeError` in all 4 `TestGetPipeline` tests |
+| `datetime.utcnow()` deprecation | `app/services/sentiment_service.py`, `app/services/news_service.py`, `app/services/weather_service.py`, `tests/test_sentiment_service.py`, `tests/test_news_service.py`, `tests/test_weather_service.py`, `tests/conftest.py` | Replaced all `datetime.utcnow()` calls with `datetime.now(UTC)` and updated imports to include `UTC`; Python 3.12 flags `utcnow()` as deprecated |
+
+**Running the unit tests:**
+```bash
+cd backend
+uv run pytest tests/ -v
+# 82 passed; remaining warnings are SQLAlchemy internals (not actionable)
+```
+
+---
+
+### Production Data Fixes (2026-05-14, v0.9)
+
+| Fix | Files Changed | Notes |
+|-----|---------------|-------|
+| Timezone mismatch in service layer | `app/services/news_service.py`, `app/services/sentiment_service.py`, `app/services/weather_service.py` | PostgreSQL stores naive UTC timestamps; `datetime.now(UTC)` returns timezone-aware. Fixed with `.replace(tzinfo=None)` so SQLAlchemy comparisons no longer raise errors or return empty results |
+| News collector lookback extended | `app/collectors/news_collector.py` | Changed 6h → 24h lookback window; `fetched_at` field (collection timestamp) now explicitly set in article dicts — required because `bulk_insert_mappings` bypasses ORM column defaults |
+| Datasource audit uses `fetched_at` | `app/services/datasource_service.py` | News freshness check now uses `fetched_at` (actual collection time) instead of `published_at` (NewsAPI free tier has 24h publication delay, so `published_at` always appeared stale) |
+| Historical data backfill script | `backend/backfill_history.py` (new) | One-shot script using Yahoo Finance historical chart API (`range=9d`) for USDLKR=X, HG=F, ALI=F and NewsAPI date-range queries; deduplicates by date; run via `uv run python backfill_history.py` inside the container |
+| Daily deduplication — FX history | `app/services/fx_service.py` | `get_history()` now groups rows by calendar date (last-write-wins) before returning; prevents duplicate x-axis points in `FXPanel` chart |
+| Daily deduplication — commodity history | `app/services/commodity_service.py` | Same pattern as FX: `get_history()` deduplicates by date before returning |
+| Daily deduplication — landed cost history | `app/routers/calculator.py` | `/calculator/history` endpoint has its own raw DB query (bypasses service layer); `comm_by_date` dict added to deduplicate commodity rows before building the response |
+| Landed cost alert engine | `app/services/alert_service.py` | Rewrote `check_alerts()` to evaluate copper and aluminium alerts on **landed cost** (LME price × USD/LKR rate) rather than raw USD price change. Added `_price_before(db, model, cutoff)` helper (queries `timestamp <= cutoff ORDER BY DESC LIMIT 1`) to retrieve the prior-day reading reliably. Added `_landed_cost_change_pct(price_now, fx_now, price_ref, fx_ref)` helper. Alert messages now report LKR/tonne values and % landed cost change |
+| 4 alert rules created in production DB | `app/services/alert_service.py` (logic), DB rows | Rule 1: Copper buy window (landed cost 24h change < -2%); Rule 2: Aluminium buy window (landed cost 24h change < -2%); Rule 3: Sri Lanka flood risk (weather HIGH trigger); Rule 4: Adverse FX (USD/LKR > 330) |
+| FinBERT sentiment enabled | `docker-compose.yml` | `SENTIMENT_ENABLED=false` → `SENTIMENT_ENABLED=true`; model downloads ~400 MB on first startup |
+| App Settings live endpoint | `app/main.py` | Added `GET /api/v1/settings`; reads `settings.*` config values and live APScheduler job intervals via `scheduler.get_jobs()`; replaces the previously hard-coded frontend display |
+| App Settings frontend rewrite | `frontend/src/api/settings.ts` (new), `frontend/src/pages/ConfigPage.tsx` | `settings.ts` exports `fetchAppSettings()` using the new endpoint; `AppSettingsTab` in `ConfigPage.tsx` rewritten from a static array to `useQuery({ queryKey: ["app-settings"], queryFn: fetchAppSettings })`; badge colours now reflect live values (red for false/not configured, green for true) |
+| UAT scenarios redesigned | `app/services/backtest_service.py` | All 5 UAT scenarios replaced to match the 4 actual production alert rules: (1) `aluminium_buy_window` — Rule 2 only, (2) `copper_market_dip` — Rules 1+2, (3) `monsoon_disruption` — Rule 3, (4) `fx_adverse_rate` — Rule 4, (5) `combined_peak_stress` — all 4 rules |
+| Backtest engine: landed cost computation | `app/services/backtest_service.py` | Historical backtest loop now computes copper and aluminium landed cost change using actual FX rate for both current and prior day; scenario parameters renamed `copper_landed_change_pct` / `aluminium_landed_change_pct` for clarity |
+
+**Decisions made during v0.9 fixes:**
+- Deduplication is applied at the service/router layer only — raw DB retains all intraday readings for alert evaluation and audit purposes. A unique-per-day DB constraint was explicitly avoided because it would interfere with the scheduler's continuous insert pattern.
+- `_price_before()` uses `timestamp <= cutoff ORDER BY DESC LIMIT 1` rather than `get_history(days=1)` because the Yahoo Finance backfill inserts daily prices with 04:00 UTC timestamps; a 24h lookback computed at midday would miss those entries.
+- `fetched_at` is explicitly set in news collector article dicts rather than relying on DB defaults, because `bulk_insert_mappings` bypasses SQLAlchemy ORM column defaults.
+- `SENTIMENT_ENABLED=true` in `docker-compose.yml` persists across container restarts; no manual step needed for future deployments.
+- The `/api/v1/settings` endpoint reads `scheduler.get_jobs()` at request time so job intervals are always accurate, even if scheduler configuration changes.
+
+---
+
 ## Running the Project
 
 ### Backend (debug mode)
@@ -223,4 +271,4 @@ db = SessionLocal(); print(score_unscored_news(db, 200)); db.close()
 
 ---
 
-*Last updated: 2026-05-13 | Current phase: Phase 3 complete (v0.6) — Phase 4 (ERP integration scoping) optional next step*
+*Last updated: 2026-05-14 | Current phase: Phase 3 complete (v0.9) — Phase 4 (ERP integration scoping) optional next step*

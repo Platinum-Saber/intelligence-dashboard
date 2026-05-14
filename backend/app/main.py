@@ -54,3 +54,44 @@ app.include_router(datasources.router, prefix="/api/v1/datasources", tags=["Data
 @app.get("/health")
 def health():
     return {"status": "ok", "debug": settings.debug}
+
+
+@app.get("/api/v1/settings")
+def app_settings():
+    from app.scheduler.jobs import scheduler
+
+    def _fmt_interval(job) -> str:
+        try:
+            secs = int(job.trigger.interval.total_seconds())
+        except Exception:
+            return "unknown"
+        if secs < 3600:
+            mins = secs // 60
+            return f"Every {mins} min"
+        hours = secs // 3600
+        return f"Every {hours} hour{'s' if hours > 1 else ''}"
+
+    jobs_out = []
+    _labels = {
+        "collect_fx":          "FX collection",
+        "collect_commodities": "Commodity prices",
+        "collect_weather":     "Weather (Open-Meteo)",
+        "collect_news":        "News collection",
+        "score_sentiment":     "Sentiment scoring",
+        "check_alerts":        "Alert check",
+    }
+    for job in scheduler.get_jobs():
+        jobs_out.append({
+            "id": job.id,
+            "name": _labels.get(job.id, job.id),
+            "interval": _fmt_interval(job),
+        })
+
+    return {
+        "debug": settings.debug,
+        "fx_api_key_configured": bool(settings.fx_api_key),
+        "newsapi_key_configured": bool(settings.newsapi_key),
+        "sentiment_enabled": settings.sentiment_enabled,
+        "database_url": settings.database_url.split("@")[-1] if "@" in settings.database_url else settings.database_url,
+        "scheduler_jobs": jobs_out,
+    }

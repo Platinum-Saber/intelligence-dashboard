@@ -32,10 +32,19 @@ The dashboard gives the procurement team a unified view of all four forces, with
 
 | Type | Trigger example |
 |------|----------------|
-| `FX_THRESHOLD` | USD/LKR drops below a configured level — favourable import window |
-| `COMMODITY_DIP` | LME copper or aluminium drops >X% in 24 h |
-| `WEATHER_RISK` | Flood risk rises above threshold in a Sri Lanka district |
+| `FX_THRESHOLD` | USD/LKR exceeds a configured level — adverse import cost signal |
+| `COMMODITY_DIP` | Copper or aluminium **landed cost** (LME price × USD/LKR) drops >X% in 24 h — buy window |
+| `WEATHER_RISK` | Flood risk rises to HIGH in a Sri Lanka district |
 | `SENTIMENT_NEGATIVE` | FinBERT negative sentiment exceeds threshold for a topic (e.g., `COPPER:0.60`) |
+
+### Active alert rules (production)
+
+| Rule | Metric | Threshold | Severity |
+|------|--------|-----------|----------|
+| Copper buy window | Copper landed cost 24h change | < -2% | Favourable |
+| Aluminium buy window | Aluminium landed cost 24h change | < -2% | Favourable |
+| Sri Lanka flood risk | Weather flood risk | HIGH in any district | High |
+| Adverse FX rate | USD/LKR | > 330 | High |
 
 ---
 
@@ -100,7 +109,7 @@ FX_API_KEY=your_key         # exchangerate-api.com — required for live USD/LKR
 NEWSAPI_KEY=your_key        # newsapi.org — required for live news feed
 
 # --- NLP ---
-SENTIMENT_ENABLED=false     # true = download ~400 MB FinBERT model and score news
+SENTIMENT_ENABLED=true      # true = download ~400 MB FinBERT model on first run
 
 # --- Email alerts (optional) ---
 SMTP_HOST=smtp.example.com
@@ -210,21 +219,81 @@ Three tabs:
 
 ---
 
-## Production deployment
+## Docker deployment (production)
 
-For production, switch SQLite to PostgreSQL by setting `DATABASE_URL`:
+**Prerequisites:** Docker Desktop installed and running.
 
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/procurement_intel
+### 1. Set API keys in `docker-compose.yml`
+
+```yaml
+environment:
+  - FX_API_KEY=your_exchangerate_api_key      # https://www.exchangerate-api.com (free tier)
+  - NEWSAPI_KEY=your_newsapi_key              # https://newsapi.org (free tier)
+  - SENTIMENT_ENABLED=true
 ```
 
-A `docker-compose.yml` is included at the project root. Run both services with:
+### 2. Build and start all services
 
 ```bash
-docker compose up --build
+docker-compose up -d --build
 ```
 
-The PostgreSQL section in `docker-compose.yml` is commented out — uncomment it for a fully containerised stack including the database.
+This starts three containers:
+
+| Container | Service | Port |
+|-----------|---------|------|
+| `intelligencedashboard-db-1` | PostgreSQL 16 + TimescaleDB | 5432 |
+| `intelligencedashboard-backend-1` | FastAPI | 8000 |
+| `intelligencedashboard-frontend-1` | React app (Nginx) | 5173 |
+
+### 3. Open the dashboard
+
+```
+http://localhost:5173
+```
+
+API / Swagger UI:
+```
+http://localhost:8000/docs
+```
+
+### 4. Backfill historical data (first run only)
+
+On first startup the database is empty. Run the backfill script to populate 7 days of FX, commodity, and news data:
+
+```bash
+docker exec intelligencedashboard-backend-1 sh -c "cd /app && uv run python backfill_history.py"
+```
+
+### Common Docker commands
+
+```bash
+# View logs
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# Stop all services (data is preserved)
+docker-compose down
+
+# Full reset — stop and delete the database volume
+docker-compose down -v
+
+# Restart backend after copying updated files
+docker cp backend/app/services/alert_service.py intelligencedashboard-backend-1:/app/app/services/alert_service.py
+docker restart intelligencedashboard-backend-1
+
+# Rebuild a single service
+docker-compose up -d --build backend
+
+# Check container health
+docker-compose ps
+
+# Open a shell in the backend container
+docker exec -it intelligencedashboard-backend-1 sh
+
+# Connect to PostgreSQL directly
+docker exec -it intelligencedashboard-db-1 psql -U acl -d procurement_intel
+```
 
 ---
 
@@ -279,7 +348,8 @@ Note: `SENTIMENT_ENABLED=true` must be set in `.env` and the ~400 MB FinBERT mod
 | Phase 1 — Foundation (backend, debug data, basic dashboard) | Complete |
 | Phase 2 — Intelligence layer (FinBERT, live collectors, weather map, enhanced alerts) | Complete |
 | UI Refactor (Tailwind/shadcn, sidebar, brand colours, light/dark mode) | Complete |
-| Phase 3 — Validation & handover (backtesting, UAT, data source audit, user guide) | Not started |
+| Phase 3 — Validation & handover (backtesting, UAT, data source audit, user guide) | Complete |
+| Post-Phase-3 fixes (timezone fix, landed cost alerts, daily deduplication, live App Settings, UAT redesign) | Complete |
 
 ---
 

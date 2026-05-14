@@ -72,9 +72,9 @@ def get_datasource_audit(db: Session) -> dict:
     wx_last = db.query(WeatherReading).order_by(WeatherReading.timestamp.desc()).first()
     wx_count = db.query(WeatherReading).filter(WeatherReading.timestamp >= since_24h).count()
 
-    # News
-    news_last = db.query(NewsItem).order_by(NewsItem.published_at.desc()).first()
-    news_count = db.query(NewsItem).filter(NewsItem.published_at >= since_24h).count()
+    # News — use fetched_at (actual collection time) not published_at (24h-delayed on free tier)
+    news_last = db.query(NewsItem).order_by(NewsItem.fetched_at.desc()).first()
+    news_count = db.query(NewsItem).filter(NewsItem.fetched_at >= since_24h).count()
 
     sources = [
         _audit_source(
@@ -114,7 +114,7 @@ def get_datasource_audit(db: Session) -> dict:
             notes="Most reliable data source in the stack. Covers both Sri Lanka districts and supplier ports. No action needed.",
         ),
         _audit_source(
-            last_ts=news_last.published_at if news_last else None,
+            last_ts=news_last.fetched_at if news_last else None,
             count_24h=news_count,
             source_name="News — NewsAPI.org",
             fragility_rating="MEDIUM",

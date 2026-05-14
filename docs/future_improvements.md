@@ -58,7 +58,7 @@ Add a function that reads the last 14 days of `weather_readings` for a given dis
 
 ```python
 def get_drought_risk(db: Session, location_name: str) -> str:
-    cutoff = datetime.utcnow() - timedelta(days=14)
+    cutoff = datetime.now(UTC) - timedelta(days=14)
     readings = db.query(WeatherReading).filter(
         WeatherReading.location_name == location_name,
         WeatherReading.timestamp >= cutoff
@@ -129,7 +129,7 @@ A single hot day is not a heatwave. Add a helper that counts how many of the las
 
 ```python
 def consecutive_hot_days(db, location_name, threshold_c, window=3) -> int:
-    cutoff = datetime.utcnow() - timedelta(days=window)
+    cutoff = datetime.now(UTC) - timedelta(days=window)
     readings = db.query(WeatherReading).filter(
         WeatherReading.location_name == location_name,
         WeatherReading.timestamp >= cutoff,
@@ -169,7 +169,7 @@ trend_window_hours = Column(Integer, nullable=True)  # e.g., 48
 ```python
 def location_elevated_for_hours(db, location_name, min_risk, hours) -> bool:
     risk_order = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
     readings = db.query(WeatherReading).filter(
         WeatherReading.location_name == location_name,
         WeatherReading.timestamp >= cutoff
@@ -388,7 +388,7 @@ trend_window_hours = Column(Integer, nullable=True)
 
 ```python
 def rate_sustained_above(db: Session, threshold: float, hours: int) -> bool:
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
     readings = db.query(FXRate).filter(FXRate.timestamp >= cutoff).all()
     if not readings:
         return False
@@ -644,6 +644,6 @@ These items were considered and excluded from this document:
 
 ---
 
-*Document created: 2026-05-13 | Last updated: 2026-05-13*
+*Document created: 2026-05-13 | Last updated: 2026-05-14*
 *Source analysis: `climate_risk.md`, `implementation_details.md`, `architecture.md`, `project_detailes.md`, `alert_service.py`, `fx_service.py`, `FXPanel.tsx`, `calculator.py`, `sentiment_service.py`, `news_service.py`*
 *To be read alongside: `docs/implementation_details.md` for tech stack context*
