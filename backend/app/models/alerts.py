@@ -17,6 +17,7 @@ class AlertRule(Base):
     enabled = Column(Boolean, default=True)
     email_recipients = Column(Text)              # comma-separated
     trend_window_hours = Column(Integer, nullable=True)  # sustained-condition window for FX and weather alerts
+    composite_condition = Column(Text, nullable=True)    # Sprint 5.4: JSON array of sub-conditions for COMPOSITE rule type
 
 
 class AlertEvent(Base):

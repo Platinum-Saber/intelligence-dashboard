@@ -12,6 +12,7 @@ class AlertRuleIn(BaseModel):
     enabled: bool = True
     email_recipients: str = ""
     trend_window_hours: int | None = None
+    composite_condition: str | None = None  # Sprint 5.4: JSON array of sub-conditions
 
 
 class AlertRuleOut(BaseModel):
@@ -28,6 +29,7 @@ class AlertRuleOut(BaseModel):
     enabled: bool
     email_recipients: str | None
     trend_window_hours: int | None
+    composite_condition: str | None  # Sprint 5.4
 
 
 class AlertEventOut(BaseModel):

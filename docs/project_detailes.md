@@ -15,6 +15,8 @@
 | 0.4 | 2026-05-13 | UI refactor complete; phase checkboxes and tech stack table updated |
 | 0.5 | 2026-05-13 | Phase 3 complete: backtesting, UAT scenarios, data source audit, user guide, deployment runbook |
 | 0.6 | 2026-05-14 | Phase 4 and Phase 5 planned — scoped from future_improvements.md gap analysis; see phase4_phase5_plan.md |
+| 0.7 | 2026-05-14 | Phase 4 fully implemented — alert reliability bugs fixed, FX & climate enhancements delivered, UAT scenarios extended to 6 covering all 7 rules, UI bugs resolved |
+| 0.8 | 2026-05-14 | Phase 5 fully implemented — news reclassification, CBSL chart overlay, SLFRS S2 climate export, composite alert builder |
 
 ---
 
@@ -238,18 +240,18 @@ These items were considered and deliberately excluded or de-scoped:
   - [x] Item 3: Multi-day weather trend alerts — `location_elevated_for_hours()` in `weather_service.py`, uses shared `trend_window_hours` field
   - [x] Item 6: Seasonal / monsoon baseline — `utils/seasonal_baseline.py`, seasonal context appended to flood/weather alert messages, `SeasonalBadge` in `AlertsPage`
 
-### Phase 5 — Advanced Intelligence & Compliance Layer ⏳ Planned
+### Phase 5 — Advanced Intelligence & Compliance Layer ✅ Complete
 **Goal:** Cross-signal composite alerts, CBSL rate chart context, improved news topic accuracy, and SLFRS S2 compliance export. Requires Phase 4 complete.
 **Full plan:** `docs/phase4_phase5_plan.md`
 
-- [ ] **Sprint 5.1 — News Intelligence Upgrade** (~1 day)
-  - [ ] Item 12: Content-based news topic classification + summary-level FinBERT scoring
-- [ ] **Sprint 5.2 — CBSL Rate Overlay** (~1 day)
-  - [ ] Item 9: CBSL reference rate step-function overlay on FX chart + manual entry form
-- [ ] **Sprint 5.3 — SLFRS S2 Climate Export** (~1.5 days)
-  - [ ] Item 4: Climate event log JSON + CSV export endpoint + Config page tab
-- [ ] **Sprint 5.4 — Cross-Signal Composite Alerts** (~2 days)
-  - [ ] Item 5: Composite alert rule type with multi-condition JSON evaluator + dynamic dialog UI
+- [x] **Sprint 5.1 — News Intelligence Upgrade** (~1 day)
+  - [x] Item 12: Content-based news topic classification (`TOPIC_KEYWORDS` + `reclassify_topic()` in `news_collector.py`); FinBERT scoring on headline + summary; `POST /api/v1/news/reclassify-all` backfill endpoint
+- [x] **Sprint 5.2 — CBSL Rate Overlay** (~1 day)
+  - [x] Item 9: `CBSLRate` model + `GET/POST/PUT/DELETE /api/v1/fx/cbsl/` router; dashed gold step-function line on FX chart; CBSL Rates tab in Configurations page
+- [x] **Sprint 5.3 — SLFRS S2 Climate Export** (~1.5 days)
+  - [x] Item 4: `climate_report_service.py` aggregations (flood days, drought days, temp extremes, port disruptions); `GET /api/v1/climate/report` + CSV streaming endpoint; Climate Report tab in Config
+- [x] **Sprint 5.4 — Cross-Signal Composite Alerts** (~2 days)
+  - [x] Item 5: `composite_condition TEXT` on `AlertRule`; `_eval_single_metric()` + `evaluate_composite()` in `alert_service.py`; dynamic multi-condition builder in Config alert dialog
 
 ---
 
@@ -303,8 +305,8 @@ The project should define measurable outcomes to evaluate whether it delivered v
 > - UI refactor (Tailwind/shadcn, sidebar, brand colours, light/dark mode, alert severity) ✅ Complete
 > - Phase 3 (backtesting, UAT scenarios, data source audit, user guide, deployment runbook) ✅ Complete
 > - Phase 4 (alert reliability, FX enhancements, climate alerts) ✅ Complete — see `docs/phase4_phase5_plan.md`
-> - Phase 5 (composite alerts, CBSL overlay, SLFRS export, news intelligence) ⏳ Planned — see `docs/phase4_phase5_plan.md`
-> - **Next step:** Phase 5 — begin Sprint 5.1 (news topic reclassification)
+> - Phase 5 (composite alerts, CBSL overlay, SLFRS export, news intelligence) ✅ Complete — see `docs/phase4_phase5_plan.md`
+> - **All planned phases complete.**
 >
 > **Running the project:**
 > ```bash
@@ -329,4 +331,4 @@ The project should define measurable outcomes to evaluate whether it delivered v
 
 ---
 
-*Last updated: 2026-05-13 | Current phase: Phase 3 complete — all planned phases delivered*
+*Last updated: 2026-05-14 | Current phase: Phase 5 complete — all phases delivered*

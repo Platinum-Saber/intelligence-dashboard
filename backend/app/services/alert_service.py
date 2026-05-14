@@ -1,3 +1,4 @@
+import json
 import smtplib
 from datetime import datetime
 from email.mime.text import MIMEText
@@ -209,6 +210,28 @@ def check_alerts(db: Session) -> list[AlertEvent]:
                     f"{', '.join(hot_locations)} — production setback risk"
                 )
 
+        # ── Composite (Sprint 5.4) ────────────────────────────────────────
+        elif rule.rule_type == "COMPOSITE":
+            triggered_composite, descs = evaluate_composite(
+                rule,
+                fx_summary=fx_summary,
+                copper_summary=copper_summary,
+                aluminium_summary=aluminium_summary,
+                high_risk_weather=high_risk_weather,
+                all_latest_weather=all_latest_weather,
+                sl_districts=sl_districts,
+                fx_ref=fx_ref,
+                cu_ref=cu_ref,
+                al_ref=al_ref,
+                db=db,
+            )
+            if triggered_composite:
+                message = (
+                    f"Composite alert: all conditions met — "
+                    + " AND ".join(descs)
+                    + f". Consider reviewing procurement position immediately."
+                )
+
         # ── Sentiment ─────────────────────────────────────────────────────
         elif rule.metric == "news_sentiment" and rule.threshold_text:
             topic_part, *pct_part = rule.threshold_text.split(":")
@@ -247,6 +270,129 @@ def check_alerts(db: Session) -> list[AlertEvent]:
             _try_notify(event, rule)
 
     return [event for event, _ in triggered]
+
+
+def _eval_single_metric(
+    metric: str,
+    comparison: str,
+    threshold_value: float | None,
+    threshold_text: str | None,
+    *,
+    fx_summary,
+    copper_summary,
+    aluminium_summary,
+    high_risk_weather,
+    all_latest_weather,
+    sl_districts,
+    fx_ref: float | None,
+    cu_ref: float | None,
+    al_ref: float | None,
+    db: Session,
+) -> bool:
+    """Sprint 5.4 — evaluate a single metric condition; returns True if triggered."""
+    from datetime import timedelta
+    from app.services import fx_service, weather_service
+    from app.utils.seasonal_baseline import seasonal_context
+
+    if metric == "usd_lkr" and fx_summary and fx_summary.current is not None:
+        if threshold_value is not None and _compare(fx_summary.current, comparison, threshold_value):
+            return True
+
+    elif metric == "usd_lkr_change_pct" and fx_summary:
+        if threshold_value is not None and _compare(fx_summary.change_24h_pct, comparison, threshold_value):
+            return True
+
+    elif metric == "copper_price" and copper_summary and fx_summary and cu_ref is not None and fx_ref is not None:
+        result = _landed_cost_change_pct(copper_summary.current_price_usd, fx_summary.current, cu_ref, fx_ref)
+        if result and threshold_value is not None and _compare(result[0], comparison, threshold_value):
+            return True
+
+    elif metric == "aluminium_price" and aluminium_summary and fx_summary and al_ref is not None and fx_ref is not None:
+        result = _landed_cost_change_pct(aluminium_summary.current_price_usd, fx_summary.current, al_ref, fx_ref)
+        if result and threshold_value is not None and _compare(result[0], comparison, threshold_value):
+            return True
+
+    elif metric == "flood_risk" and threshold_text:
+        flagged = [loc.location_name for loc in high_risk_weather if loc.flood_risk == threshold_text]
+        if flagged:
+            return True
+
+    elif metric == "drought_risk" and threshold_text:
+        high_drought = weather_service.get_high_drought_risk(db, threshold_text)
+        if high_drought:
+            return True
+
+    elif metric == "heatwave" and threshold_value is not None:
+        hot = [
+            loc.location_name for loc in sl_districts
+            if weather_service.consecutive_hot_days(db, loc.location_name, threshold_value) >= 3
+        ]
+        if hot:
+            return True
+
+    elif metric == "news_sentiment" and threshold_text:
+        topic_part, *pct_part = threshold_text.split(":")
+        if pct_part:
+            threshold_pct = float(pct_part[0])
+            from app.services.sentiment_service import get_sentiment_summary
+            summaries = get_sentiment_summary(db, days=1)
+            for s in summaries:
+                if s["topic"] == topic_part.upper():
+                    total = s["positive"] + s["negative"] + s["neutral"]
+                    if total >= settings.sentiment_min_articles:
+                        neg_pct = s["negative"] / total
+                        if neg_pct >= threshold_pct:
+                            return True
+
+    return False
+
+
+def evaluate_composite(
+    rule: AlertRule,
+    *,
+    fx_summary,
+    copper_summary,
+    aluminium_summary,
+    high_risk_weather,
+    all_latest_weather,
+    sl_districts,
+    fx_ref: float | None,
+    cu_ref: float | None,
+    al_ref: float | None,
+    db: Session,
+) -> tuple[bool, list[str]]:
+    """Sprint 5.4 — evaluate a COMPOSITE rule; returns (triggered, [sub-condition descriptions])."""
+    if not rule.composite_condition:
+        return False, []
+    try:
+        conditions: list[dict] = json.loads(rule.composite_condition)
+    except (json.JSONDecodeError, TypeError):
+        return False, []
+
+    triggered_descs: list[str] = []
+    for cond in conditions:
+        metric = cond.get("metric", "")
+        comparison = cond.get("op", "gt")
+        threshold_value = cond.get("value") if isinstance(cond.get("value"), (int, float)) else None
+        threshold_text = cond.get("value") if isinstance(cond.get("value"), str) else None
+        hit = _eval_single_metric(
+            metric, comparison, threshold_value, threshold_text,
+            fx_summary=fx_summary,
+            copper_summary=copper_summary,
+            aluminium_summary=aluminium_summary,
+            high_risk_weather=high_risk_weather,
+            all_latest_weather=all_latest_weather,
+            sl_districts=sl_districts,
+            fx_ref=fx_ref,
+            cu_ref=cu_ref,
+            al_ref=al_ref,
+            db=db,
+        )
+        if not hit:
+            return False, []  # AND semantics — any failure short-circuits
+        triggered_descs.append(f"{metric} {comparison} {cond.get('value')}")
+
+    return True, triggered_descs
 
 
 def _try_notify(event: AlertEvent, rule: AlertRule) -> None:

@@ -12,6 +12,8 @@
 | Version | Date | Change Summary |
 |---------|------|----------------|
 | 1.0 | 2026-05-14 | Initial plan — Phase 4 and Phase 5 scoped from `future_improvements.md` gap analysis |
+| 1.1 | 2026-05-14 | Phase 4 complete — all 8 items delivered plus additional UI bug fixes and UAT overhaul; see `implementation_details.md` v1.0 for full decision log |
+| 1.2 | 2026-05-14 | Phase 5 complete — all 4 sprints delivered; additional fixes: buyer-perspective sentiment, NewsAPI rate-limit optimisation, 7-day startup backfill, weather map height; see `implementation_details.md` v1.1 for full decision log |
 
 ---
 
@@ -196,20 +198,22 @@ DB changes: none
 
 ---
 
-### Phase 4 — Delivery Checklist
+### Phase 4 — Delivery Checklist ✅ Complete
 
-| Item | Area | Effort | Dependency |
-|------|------|--------|------------|
-| 10 — Sentiment min article guard | Bug fix | 1 hr | — |
-| 11 — Per-rule email recipients | Bug fix | 30 min | — |
-| 7 — FX % change alert | FX | 2 hrs | — |
-| 8 — FX multi-day trend alert | FX + Schema | 1 day | Schema (shared with #3) |
-| 1 — Drought detection | Climate | 1 day | — |
-| 2 — Heatwave alert | Climate | 4 hrs | — |
-| 3 — Multi-day weather trend | Climate | 1 day | Schema from #8 |
-| 6 — Seasonal baseline | Climate | 1 day | #3 (message enrichment) |
+| Item | Area | Status | Notes |
+|------|------|--------|-------|
+| 10 — Sentiment min article guard | Bug fix | ✅ Done | `SENTIMENT_MIN_ARTICLES` env var (default 5); applied in `alert_service.py` and `backtest_service.py` |
+| 11 — Per-rule email recipients | Bug fix | ✅ Done | `_try_notify(event, rule)` reads `rule.email_recipients`; comma-split; falls back to global `alert_from_email` |
+| 7 — FX % change alert | FX | ✅ Done | `usd_lkr_change_pct` metric; switches to `get_summary()` for combined FX data; `ConfigPage` shows `(%)` unit label |
+| 8 — FX multi-day trend alert | FX + Schema | ✅ Done | `trend_window_hours` on `AlertRule`; `rate_sustained_above()` in `fx_service.py`; `migrations.py` handles `ALTER TABLE IF NOT EXISTS` |
+| 1 — Drought detection | Climate | ✅ Done | `drought_risk` column on `WeatherReading`; 14-day rolling deficit computation; scheduler stamps on each collection cycle |
+| 2 — Heatwave alert | Climate | ✅ Done | `consecutive_hot_days()` in `weather_service.py`; fires when ≥3 consecutive days above threshold |
+| 3 — Multi-day weather trend | Climate | ✅ Done | `location_elevated_for_hours()` in `weather_service.py`; uses shared `trend_window_hours` column |
+| 6 — Seasonal baseline | Climate | ✅ Done | `utils/seasonal_baseline.py`; `[Seasonal context: …]` suffix appended to weather alerts; `SeasonalBadge` in `AlertsPage` |
+| — UI bug fixes (additional) | Frontend | ✅ Done | Delete/Check Now buttons fixed (absolute URL); query key mismatch fixed; drought badge misclassification fixed |
+| — UAT scenarios overhaul | Testing | ✅ Done | Expanded from 5 to 6 scenarios; all 7 Phase 4 rules covered; backtest engine evaluates drought/heatwave/FX-change historically |
 
-**Phase 4 total: ~6 days**
+**Phase 4 total: delivered 2026-05-14**
 
 ---
 
@@ -319,16 +323,20 @@ DB changes: ALTER TABLE alert_rules ADD COLUMN composite_condition TEXT (nullabl
 
 ---
 
-### Phase 5 — Delivery Checklist
+### Phase 5 — Delivery Checklist ✅ Complete
 
-| Item | Area | Effort | Dependency |
-|------|------|--------|------------|
-| 12 — Content-based topic classification | News / NLP | 1 day | — |
-| 9 — CBSL rate overlay | FX chart | 1 day | — |
-| 4 — SLFRS S2 climate export | Compliance | 1.5 days | Phase 4 Item 1 (drought risk data) |
-| 5 — Cross-signal composite alerts | Alert engine | 2 days | Phase 4 Sprints 4.2 + 4.3 complete |
+| Item | Area | Status | Notes |
+|------|------|--------|-------|
+| 12 — Content-based topic classification | News / NLP | ✅ Done | `TOPIC_KEYWORDS` + `reclassify_topic()` in `news_collector.py`; 2 broad queries replace 5 per-topic queries; 72h lookback; `pageSize=100`; URL dedup; `POST /reclassify-all` backfill endpoint |
+| 9 — CBSL rate overlay | FX chart | ✅ Done | `CBSLRate` model + full CRUD router at `/api/v1/fx/cbsl`; step-function gold line on FX chart; CBSL Rates Config tab with add/edit/delete dialog |
+| 4 — SLFRS S2 climate export | Compliance | ✅ Done | `climate_report_service.py` aggregates flood/drought/temp/port/alert data by date range; JSON + CSV download endpoints; Climate Report tab in Config with date picker and Download CSV |
+| 5 — Cross-signal composite alerts | Alert engine | ✅ Done | `composite_condition` TEXT column on `AlertRule`; `_eval_single_metric()` + `evaluate_composite()` with AND semantics; COMPOSITE rule type in alert engine; dynamic condition builder UI in ConfigPage |
+| — Buyer-perspective sentiment fix | NLP / Data | ✅ Done | `_buyer_key()` inverts COPPER/ALUMINIUM sentiment at scoring time; DB stores procurement-correct labels; no read-time inversion |
+| — NewsAPI rate-limit optimisation | Collector | ✅ Done | Reduced from ~40 req/day to ~16 req/day; free tier quota no longer exhausted |
+| — Startup 7-day history backfill | Scheduler | ✅ Done | `_backfill_history()` in `jobs.py`; uses Yahoo Finance historical chart API for both FX and commodities; idempotent on every restart |
+| — Weather map portrait layout | Frontend | ✅ Done | `.mapWrap` height increased to `700px` |
 
-**Phase 5 total: ~5.5 days**
+**Phase 5 total: delivered 2026-05-14**
 
 ---
 

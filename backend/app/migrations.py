@@ -17,6 +17,8 @@ MIGRATIONS: list[str] = [
     "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS trend_window_hours INTEGER",
     # Phase 4 — Sprint 4.3: rolling 14-day drought risk level per weather reading
     "ALTER TABLE weather_readings ADD COLUMN IF NOT EXISTS drought_risk VARCHAR(20)",
+    # Phase 5 — Sprint 5.4: composite multi-condition alert rule payload
+    "ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS composite_condition TEXT",
 ]
 
 

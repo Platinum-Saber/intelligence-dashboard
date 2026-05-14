@@ -32,3 +32,10 @@ def score_now(db: Session = Depends(get_db)):
     """Manually trigger FinBERT scoring of unscored news items."""
     scored = sentiment_service.score_unscored_news(db)
     return {"scored": scored}
+
+
+@router.post("/reclassify-all", status_code=202)
+def reclassify_all(db: Session = Depends(get_db)):
+    """Sprint 5.1: backfill content-based topic reclassification for all existing articles."""
+    updated = sentiment_service.reclassify_all_topics(db)
+    return {"updated": updated}
