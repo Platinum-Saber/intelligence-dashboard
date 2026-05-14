@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import Base, engine, SessionLocal
+from app.migrations import run_migrations
 from app.models import FXRate  # ensure all models are registered
 from app.routers import fx, commodities, weather, news, alerts, calculator, backtest, datasources
 from app.scheduler.jobs import start_scheduler
@@ -13,6 +14,7 @@ from app.scheduler.jobs import start_scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    run_migrations(engine)
 
     if settings.debug:
         db = SessionLocal()

@@ -93,16 +93,19 @@ def check_alerts(db: Session) -> list[AlertEvent]:
     from app.services import fx_service, commodity_service, weather_service
     from app.models.fx import FXRate
     from app.models.commodities import CommodityPrice
+    from app.utils.seasonal_baseline import seasonal_context
 
     rules = db.query(AlertRule).filter(AlertRule.enabled.is_(True)).all()
-    triggered: list[AlertEvent] = []
+    triggered: list[tuple[AlertEvent, AlertRule]] = []
 
-    fx_latest = fx_service.get_latest(db)
+    # Fetch latest data once — get_summary covers both current rate and 24h change
+    fx_summary = fx_service.get_summary(db)
     copper_summary = commodity_service.get_summary(db, "COPPER")
     aluminium_summary = commodity_service.get_summary(db, "ALUMINIUM")
     high_risk_weather = weather_service.get_high_risk(db)
+    all_latest_weather = weather_service.get_latest_all(db)
 
-    # Reference readings from 24h ago (most recent reading at or before that point)
+    # Reference readings from 24h ago for landed cost calculation
     cutoff = datetime.utcnow() - timedelta(hours=24)
     fx_ref_row     = _price_before(db, FXRate, cutoff)
     cu_ref_row     = _price_before(db, CommodityPrice, cutoff, CommodityPrice.symbol == "COPPER")
@@ -112,15 +115,39 @@ def check_alerts(db: Session) -> list[AlertEvent]:
     cu_ref = cu_ref_row.price_usd  if cu_ref_row else None
     al_ref = al_ref_row.price_usd  if al_ref_row else None
 
+    sl_districts = [loc for loc in all_latest_weather if loc.location_type == "sri_lanka_district"]
+
     for rule in rules:
         message: str | None = None
 
-        if rule.metric == "usd_lkr" and fx_latest:
-            if rule.threshold_value is not None and _compare(fx_latest.usd_lkr, rule.comparison, rule.threshold_value):
-                message = f"USD/LKR is {fx_latest.usd_lkr} — {rule.comparison} threshold {rule.threshold_value}"
+        # ── FX: absolute level (snapshot or sustained-window) ──────────────
+        if rule.metric == "usd_lkr" and fx_summary and fx_summary.current:
+            if rule.trend_window_hours:
+                if rule.threshold_value is not None and fx_service.rate_sustained_above(
+                    db, rule.threshold_value, rule.trend_window_hours
+                ):
+                    message = (
+                        f"USD/LKR has remained above {rule.threshold_value} "
+                        f"for {rule.trend_window_hours}h — sustained depreciation pressure "
+                        f"(current: {fx_summary.current:.2f})"
+                    )
+            elif rule.threshold_value is not None and _compare(fx_summary.current, rule.comparison, rule.threshold_value):
+                message = f"USD/LKR is {fx_summary.current} — {rule.comparison} threshold {rule.threshold_value}"
 
-        elif rule.metric == "copper_price" and copper_summary and fx_latest and cu_ref is not None and fx_ref is not None:
-            result = _landed_cost_change_pct(copper_summary.current_price_usd, fx_latest.usd_lkr, cu_ref, fx_ref)
+        # ── FX: 24h percentage change ──────────────────────────────────────
+        elif rule.metric == "usd_lkr_change_pct" and fx_summary:
+            if rule.threshold_value is not None and _compare(
+                fx_summary.change_24h_pct, rule.comparison, rule.threshold_value
+            ):
+                message = (
+                    f"USD/LKR moved {fx_summary.change_24h_pct:+.2f}% today "
+                    f"(current: {fx_summary.current:.2f}) — "
+                    f"{rule.comparison} threshold {rule.threshold_value}%"
+                )
+
+        # ── Commodity: landed cost 24h change ─────────────────────────────
+        elif rule.metric == "copper_price" and copper_summary and fx_summary and cu_ref is not None and fx_ref is not None:
+            result = _landed_cost_change_pct(copper_summary.current_price_usd, fx_summary.current, cu_ref, fx_ref)
             if result and rule.threshold_value is not None and _compare(result[0], rule.comparison, rule.threshold_value):
                 change_pct, landed_now, landed_ref = result
                 message = (
@@ -129,8 +156,8 @@ def check_alerts(db: Session) -> list[AlertEvent]:
                     f"{rule.comparison} threshold {rule.threshold_value}%"
                 )
 
-        elif rule.metric == "aluminium_price" and aluminium_summary and fx_latest and al_ref is not None and fx_ref is not None:
-            result = _landed_cost_change_pct(aluminium_summary.current_price_usd, fx_latest.usd_lkr, al_ref, fx_ref)
+        elif rule.metric == "aluminium_price" and aluminium_summary and fx_summary and al_ref is not None and fx_ref is not None:
+            result = _landed_cost_change_pct(aluminium_summary.current_price_usd, fx_summary.current, al_ref, fx_ref)
             if result and rule.threshold_value is not None and _compare(result[0], rule.comparison, rule.threshold_value):
                 change_pct, landed_now, landed_ref = result
                 message = (
@@ -139,14 +166,51 @@ def check_alerts(db: Session) -> list[AlertEvent]:
                     f"{rule.comparison} threshold {rule.threshold_value}%"
                 )
 
+        # ── Weather: flood risk (snapshot or sustained-window) ────────────
         elif rule.metric == "flood_risk" and rule.threshold_text:
-            flagged = [loc.location_name for loc in high_risk_weather if loc.flood_risk == rule.threshold_text]
-            if flagged:
-                message = f"Flood risk {rule.threshold_text} in: {', '.join(flagged)}"
+            if rule.trend_window_hours:
+                elevated = [
+                    loc.location_name for loc in sl_districts
+                    if weather_service.location_elevated_for_hours(
+                        db, loc.location_name, rule.threshold_text, rule.trend_window_hours
+                    )
+                ]
+                if elevated:
+                    ctx = seasonal_context(elevated[0], datetime.utcnow().month)
+                    message = (
+                        f"Flood risk {rule.threshold_text} sustained for {rule.trend_window_hours}h in: "
+                        f"{', '.join(elevated)} — logistics pre-positioning advised. {ctx}"
+                    )
+            else:
+                flagged = [loc.location_name for loc in high_risk_weather if loc.flood_risk == rule.threshold_text]
+                if flagged:
+                    ctx = seasonal_context(flagged[0], datetime.utcnow().month)
+                    message = f"Flood risk {rule.threshold_text} in: {', '.join(flagged)}. {ctx}"
 
+        # ── Weather: drought risk ─────────────────────────────────────────
+        elif rule.metric == "drought_risk" and rule.threshold_text:
+            high_drought = weather_service.get_high_drought_risk(db, rule.threshold_text)
+            if high_drought:
+                locations = [loc.location_name for loc in high_drought]
+                message = (
+                    f"Drought risk {rule.threshold_text} in: {', '.join(locations)} — "
+                    f"water stress may affect manufacturing operations"
+                )
+
+        # ── Weather: heatwave ─────────────────────────────────────────────
+        elif rule.metric == "heatwave" and rule.threshold_value is not None:
+            hot_locations = [
+                loc.location_name for loc in sl_districts
+                if weather_service.consecutive_hot_days(db, loc.location_name, rule.threshold_value) >= 3
+            ]
+            if hot_locations:
+                message = (
+                    f"Heatwave alert: ≥3 consecutive days above {rule.threshold_value}°C in: "
+                    f"{', '.join(hot_locations)} — production setback risk"
+                )
+
+        # ── Sentiment ─────────────────────────────────────────────────────
         elif rule.metric == "news_sentiment" and rule.threshold_text:
-            # Trigger when a topic's negative score fraction exceeds a threshold
-            # threshold_text = "COPPER:0.6" → 60% negative articles in last 24h
             topic_part, *pct_part = rule.threshold_text.split(":")
             if pct_part:
                 threshold_pct = float(pct_part[0])
@@ -155,14 +219,16 @@ def check_alerts(db: Session) -> list[AlertEvent]:
                 for s in summaries:
                     if s["topic"] == topic_part.upper():
                         total = s["positive"] + s["negative"] + s["neutral"]
-                        if total > 0:
-                            neg_pct = s["negative"] / total
-                            if neg_pct >= threshold_pct:
-                                message = (
-                                    f"News sentiment warning: {topic_part} — "
-                                    f"{s['negative']}/{total} articles negative "
-                                    f"({neg_pct:.0%}) in last 24h"
-                                )
+                        # Sprint 4.1: minimum article count guard — avoids 1/1=100% false alerts
+                        if total < settings.sentiment_min_articles:
+                            break
+                        neg_pct = s["negative"] / total
+                        if neg_pct >= threshold_pct:
+                            message = (
+                                f"News sentiment warning: {topic_part} — "
+                                f"{s['negative']}/{total} articles negative "
+                                f"({neg_pct:.0%}) in last 24h"
+                            )
 
         if message:
             event = AlertEvent(
@@ -173,24 +239,28 @@ def check_alerts(db: Session) -> list[AlertEvent]:
                 notified=False,
             )
             db.add(event)
-            triggered.append(event)
+            triggered.append((event, rule))
 
     if triggered:
         db.commit()
-        for event in triggered:
-            _try_notify(event)
+        for event, rule in triggered:
+            _try_notify(event, rule)
 
-    return triggered
+    return [event for event, _ in triggered]
 
 
-def _try_notify(event: AlertEvent) -> None:
+def _try_notify(event: AlertEvent, rule: AlertRule) -> None:
     if not settings.smtp_user or not settings.alert_from_email:
         return
+    # Sprint 4.1: read per-rule recipients; fall back to global sender address
+    recipients = [r.strip() for r in (rule.email_recipients or "").split(",") if r.strip()]
+    if not recipients:
+        recipients = [settings.alert_from_email]
     try:
         msg = MIMEText(event.message)
         msg["Subject"] = f"[ACL Dashboard] Alert: {event.rule_name}"
         msg["From"] = settings.alert_from_email
-        msg["To"] = settings.alert_from_email   # default; per-rule recipients in future
+        msg["To"] = ", ".join(recipients)
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as s:
             s.starttls()
             s.login(settings.smtp_user, settings.smtp_password)

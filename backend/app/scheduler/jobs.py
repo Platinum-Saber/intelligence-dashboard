@@ -56,17 +56,24 @@ def _collect_commodities() -> None:
 
 def _collect_weather() -> None:
     """Open-Meteo is free + keyless — runs in all modes."""
-    from app.collectors.weather_collector import fetch_sri_lanka_weather, fetch_supplier_port_weather
+    from app.collectors.weather_collector import fetch_sri_lanka_weather, fetch_supplier_port_weather, SL_DISTRICTS
     from app.database import SessionLocal
     from app.models.weather import WeatherReading
+    from app.services import weather_service
 
-    all_readings = fetch_sri_lanka_weather() + fetch_supplier_port_weather()
+    sl_readings = fetch_sri_lanka_weather()
+    port_readings = fetch_supplier_port_weather()
+    all_readings = sl_readings + port_readings
     if not all_readings:
         return
 
     db = SessionLocal()
     try:
         db.bulk_insert_mappings(WeatherReading, all_readings)
+        db.commit()
+        # Compute 14-day rolling drought risk and stamp it on the just-inserted SL district readings
+        for name in SL_DISTRICTS:
+            weather_service.update_drought_risk_latest(db, name)
         db.commit()
         logger.info(f"[scheduler] Weather collected: {len(all_readings)} locations")
     finally:
