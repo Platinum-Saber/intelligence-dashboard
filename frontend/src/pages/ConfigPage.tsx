@@ -7,6 +7,7 @@ import {
   deleteAlertRule,
   triggerManualCheck,
 } from "@/api/alerts"
+import { post as apiPost } from "@/api/client"
 import type { AlertRule } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,11 +25,22 @@ import { fetchAppSettings } from "@/api/settings"
 
 const RULE_TYPES = ["FX_THRESHOLD", "COMMODITY_DIP", "WEATHER_RISK", "SENTIMENT_NEGATIVE"] as const
 const METRICS: Record<string, string[]> = {
-  FX_THRESHOLD:       ["usd_lkr"],
+  FX_THRESHOLD:       ["usd_lkr", "usd_lkr_change_pct"],
   COMMODITY_DIP:      ["copper_price", "aluminium_price"],
-  WEATHER_RISK:       ["flood_risk"],
+  WEATHER_RISK:       ["flood_risk", "drought_risk", "heatwave"],
   SENTIMENT_NEGATIVE: ["news_sentiment"],
 }
+const METRIC_LABELS: Record<string, string> = {
+  usd_lkr:            "USD/LKR Rate",
+  usd_lkr_change_pct: "USD/LKR Daily Change %",
+  copper_price:       "Copper Landed Cost Δ%",
+  aluminium_price:    "Aluminium Landed Cost Δ%",
+  flood_risk:         "Flood Risk",
+  drought_risk:       "Drought Risk",
+  heatwave:           "Heatwave (°C)",
+  news_sentiment:     "News Sentiment",
+}
+const TREND_WINDOW_METRICS = new Set(["usd_lkr", "flood_risk"])
 const RULE_TYPE_COLORS: Record<string, string> = {
   FX_THRESHOLD:       "bg-[var(--c-primary)]/15 text-[var(--c-primary)]",
   COMMODITY_DIP:      "bg-[var(--c-orange)]/15 text-[var(--c-orange)]",
@@ -45,6 +57,7 @@ const EMPTY_RULE: Omit<AlertRule, "id" | "created_at"> = {
   threshold_text: null,
   enabled: true,
   email_recipients: "",
+  trend_window_hours: null,
 }
 
 function RuleTypeChip({ type }: { type: string }) {
@@ -103,7 +116,10 @@ function AlertRulesTab() {
 
   const checkMutation = useMutation({
     mutationFn: triggerManualCheck,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["alert-events"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["alert-events"] })
+      qc.invalidateQueries({ queryKey: ["alert-events-full"] })
+    },
   })
 
   function setField(field: string, value: string | number | boolean | null) {
@@ -114,7 +130,8 @@ function AlertRulesTab() {
     })
   }
 
-  const isTextMetric = form.metric === "flood_risk" || form.metric === "news_sentiment"
+  const isTextMetric = form.metric === "flood_risk" || form.metric === "drought_risk" || form.metric === "news_sentiment"
+  const showTrendWindow = TREND_WINDOW_METRICS.has(form.metric)
 
   return (
     <div className="flex flex-col gap-4">
@@ -220,7 +237,9 @@ function AlertRulesTab() {
                 <Select value={form.metric} onValueChange={(v) => setField("metric", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(METRICS[form.rule_type] ?? []).map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {(METRICS[form.rule_type] ?? []).map((m) => (
+                      <SelectItem key={m} value={m}>{METRIC_LABELS[m] ?? m}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -243,12 +262,16 @@ function AlertRulesTab() {
                   <Input
                     value={form.threshold_text ?? ""}
                     onChange={(e) => setField("threshold_text", e.target.value)}
-                    placeholder={form.metric === "news_sentiment" ? "e.g. COPPER:0.60" : "e.g. HIGH"}
+                    placeholder={
+                      form.metric === "news_sentiment" ? "e.g. COPPER:0.60"
+                      : form.metric === "drought_risk"  ? "e.g. HIGH"
+                      : "e.g. HIGH"
+                    }
                   />
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label>Threshold value</Label>
+                  <Label>Threshold value{form.metric === "heatwave" ? " (°C)" : form.metric === "usd_lkr_change_pct" ? " (%)" : ""}</Label>
                   <Input
                     type="number"
                     step="any"
@@ -266,6 +289,20 @@ function AlertRulesTab() {
                 />
               </div>
             </div>
+            {showTrendWindow && (
+              <div className="space-y-2">
+                <Label>Sustained for (hours) <span className="text-muted-foreground font-normal">— optional, enables trend alert</span></Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={form.trend_window_hours ?? ""}
+                  onChange={(e) => setField("trend_window_hours", e.target.value ? parseInt(e.target.value) : null)}
+                  placeholder="e.g. 48 — leave blank for snapshot check"
+                  className="max-w-xs"
+                />
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={createMutation.isPending}>
@@ -469,9 +506,7 @@ function ModelTuningTab() {
     setScoring(true)
     setError(null)
     try {
-      const res = await fetch("/api/v1/news/score-now", { method: "POST" })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json() as { scored: number }
+      const data = await apiPost<{ scored: number }>("/api/v1/news/score-now", {})
       setScored(data.scored)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error")

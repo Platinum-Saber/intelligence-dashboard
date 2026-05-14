@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Phase 2: NLP
     sentiment_enabled: bool = True  # set False to skip FinBERT loading
 
+    # Alert quality
+    sentiment_min_articles: int = 5  # minimum article count before sentiment alert fires
+
     # SMTP alert notifications
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587

@@ -28,6 +28,16 @@ def get_history(db: Session, days: int = 30) -> list[FXRateOut]:
     return [FXRateOut.model_validate(r) for r in deduped]
 
 
+def rate_sustained_above(db: Session, threshold: float, hours: int) -> bool:
+    """Returns True if every FX reading in the last `hours` hours exceeds `threshold`."""
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    readings = db.query(FXRate).filter(FXRate.timestamp >= cutoff).all()
+    if not readings:
+        return False
+    return all(r.usd_lkr > threshold for r in readings)
+
+
 def get_summary(db: Session) -> FXSummary:
     rates_30d = get_history(db, days=30)
     rates_24h = get_history(db, days=1)

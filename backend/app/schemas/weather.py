@@ -11,6 +11,7 @@ class WeatherReadingOut(BaseModel):
     location_name: str
     rainfall_mm: float | None
     flood_risk: str | None
+    drought_risk: str | None
     temperature_c: float | None
     source: str | None
 
@@ -21,4 +22,5 @@ class WeatherLatest(BaseModel):
     timestamp: datetime
     rainfall_mm: float | None
     flood_risk: str
+    drought_risk: str | None
     temperature_c: float | None

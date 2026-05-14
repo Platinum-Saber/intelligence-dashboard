@@ -28,6 +28,7 @@ const EMPTY_RULE: Omit<AlertRule, "id" | "created_at"> = {
   threshold_text: null,
   enabled: true,
   email_recipients: "",
+  trend_window_hours: null,
 };
 
 function timeAgo(iso: string) {

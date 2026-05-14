@@ -65,6 +65,7 @@ export interface AlertRule {
   threshold_text: string | null;
   enabled: boolean;
   email_recipients: string | null;
+  trend_window_hours: number | null;
 }
 
 export interface AlertEvent {
