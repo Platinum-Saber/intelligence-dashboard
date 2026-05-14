@@ -297,6 +297,15 @@ function ScenarioCard({
           <span className="text-xs bg-muted rounded px-2 py-1 text-muted-foreground">
             USD/LKR {scenario.conditions.usd_lkr.toFixed(1)}
           </span>
+          {scenario.conditions.usd_lkr_change_pct !== 0 && (
+            <span className={`text-xs rounded px-2 py-1 ${
+              Math.abs(scenario.conditions.usd_lkr_change_pct) > 1.5
+                ? "bg-blue-500/15 text-blue-500"
+                : "bg-muted text-muted-foreground"
+            }`}>
+              FX {scenario.conditions.usd_lkr_change_pct > 0 ? "+" : ""}{scenario.conditions.usd_lkr_change_pct.toFixed(1)}%
+            </span>
+          )}
           <span className="text-xs bg-muted rounded px-2 py-1 text-muted-foreground">
             Cu {scenario.conditions.copper_change_pct > 0 ? "+" : ""}{scenario.conditions.copper_change_pct.toFixed(1)}%
           </span>
@@ -306,6 +315,16 @@ function ScenarioCard({
           {scenario.conditions.high_risk_locations.length > 0 && (
             <span className="text-xs bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 rounded px-2 py-1">
               Flood: {scenario.conditions.high_risk_locations.join(", ")}
+            </span>
+          )}
+          {scenario.conditions.drought_risk_locations.length > 0 && (
+            <span className="text-xs bg-orange-500/15 text-orange-500 rounded px-2 py-1">
+              Drought: {scenario.conditions.drought_risk_locations.join(", ")}
+            </span>
+          )}
+          {scenario.conditions.max_temp_c !== null && scenario.conditions.max_temp_c > 35 && (
+            <span className="text-xs bg-red-500/15 text-red-500 rounded px-2 py-1">
+              {scenario.conditions.max_temp_c.toFixed(1)} °C
             </span>
           )}
         </div>

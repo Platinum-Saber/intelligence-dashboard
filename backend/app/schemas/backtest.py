@@ -50,9 +50,12 @@ class ScenarioSentimentTopic(BaseModel):
 
 class ScenarioConditions(BaseModel):
     usd_lkr: float
+    usd_lkr_change_pct: float = 0.0
     copper_change_pct: float
     aluminium_change_pct: float
     high_risk_locations: list[str]
+    drought_risk_locations: list[str] = []
+    max_temp_c: float | None = None
     sentiment_by_topic: dict[str, ScenarioSentimentTopic]
 
 

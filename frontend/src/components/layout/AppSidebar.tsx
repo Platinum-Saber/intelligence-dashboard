@@ -106,7 +106,7 @@ export function AppSidebar() {
           <div className="px-3">
             <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-[var(--c-gold)] opacity-70">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--c-gold)] animate-pulse" />
-              Phase 3 · Debug
+              Phase 4 · Debug
             </span>
           </div>
         </div>

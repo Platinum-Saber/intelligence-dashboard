@@ -12,5 +12,6 @@ class WeatherReading(Base):
     location_name = Column(String(100), index=True)
     rainfall_mm = Column(Float)
     flood_risk = Column(String(20))       # LOW | MEDIUM | HIGH | CRITICAL
+    drought_risk = Column(String(20), nullable=True)  # LOW | MEDIUM | HIGH | CRITICAL
     temperature_c = Column(Float)
     source = Column(String(50))
