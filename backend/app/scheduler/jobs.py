@@ -132,10 +132,75 @@ def _check_alerts() -> None:
         db.close()
 
 
+# ── Historical backfill ───────────────────────────────────────────────────────
+
+def _backfill_history() -> None:
+    """On startup, ensure at least 7 days of FX and commodity data exist.
+    Only inserts dates that are missing — safe to call on every restart."""
+    from datetime import timedelta
+    from app.database import SessionLocal
+    from app.models.fx import FXRate
+    from app.models.commodities import CommodityPrice
+    from app.collectors.fx_collector import fetch_usd_lkr_history
+    from app.collectors.commodity_collector import fetch_commodity_history
+
+    db = SessionLocal()
+    try:
+        since = datetime.utcnow() - timedelta(days=8)
+
+        # FX backfill
+        existing_fx = {
+            r.timestamp.date()
+            for r in db.query(FXRate).filter(FXRate.timestamp >= since).all()
+        }
+        if len(existing_fx) < 7:
+            history = fetch_usd_lkr_history(days=7)
+            added = 0
+            for entry in history:
+                if entry["date"] not in existing_fx:
+                    ts = datetime(entry["date"].year, entry["date"].month, entry["date"].day, 12, 0, 0)
+                    db.add(FXRate(usd_lkr=entry["rate"], source="yahoo-finance-history", timestamp=ts))
+                    added += 1
+            if added:
+                db.commit()
+                logger.info(f"[backfill] FX: added {added} historical day(s)")
+
+        # Commodity backfill
+        for symbol in ["COPPER", "ALUMINIUM"]:
+            existing = {
+                r.timestamp.date()
+                for r in db.query(CommodityPrice)
+                .filter(CommodityPrice.symbol == symbol, CommodityPrice.timestamp >= since)
+                .all()
+            }
+            if len(existing) < 7:
+                history = fetch_commodity_history(symbol, days=7)
+                added = 0
+                for entry in history:
+                    if entry["date"] not in existing:
+                        ts = datetime(entry["date"].year, entry["date"].month, entry["date"].day, 12, 0, 0)
+                        db.add(CommodityPrice(
+                            symbol=symbol,
+                            price_usd=entry["price_usd"],
+                            source="yahoo-finance-history",
+                            timestamp=ts,
+                        ))
+                        added += 1
+                if added:
+                    db.commit()
+                    logger.info(f"[backfill] {symbol}: added {added} historical day(s)")
+
+    except Exception as exc:
+        logger.error(f"[backfill] failed: {exc}")
+    finally:
+        db.close()
+
+
 # ── Startup ───────────────────────────────────────────────────────────────────
 
 def start_scheduler() -> None:
     now = datetime.now()
+    _backfill_history()  # Ensure 7-day history before live collection starts
     scheduler.add_job(_collect_fx,          "interval", minutes=20,  id="collect_fx",          next_run_time=now)
     scheduler.add_job(_collect_commodities, "interval", hours=1,     id="collect_commodities", next_run_time=now)
     scheduler.add_job(_collect_weather,     "interval", hours=1,     id="collect_weather",     next_run_time=now)

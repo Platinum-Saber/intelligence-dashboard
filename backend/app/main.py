@@ -6,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine, SessionLocal
 from app.migrations import run_migrations
-from app.models import FXRate  # ensure all models are registered
+from app.models import FXRate  # ensure all models are registered (CBSLRate also imported via models/__init__.py)
 from app.routers import fx, commodities, weather, news, alerts, calculator, backtest, datasources
+from app.routers import cbsl as cbsl_router        # Sprint 5.2
+from app.routers import climate_report              # Sprint 5.3
 from app.scheduler.jobs import start_scheduler
 
 
@@ -51,6 +53,8 @@ app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(calculator.router, prefix="/api/v1/calculator", tags=["Calculator"])
 app.include_router(backtest.router, prefix="/api/v1/backtest", tags=["Backtest"])
 app.include_router(datasources.router, prefix="/api/v1/datasources", tags=["DataSources"])
+app.include_router(cbsl_router.router, prefix="/api/v1/fx/cbsl", tags=["CBSL"])   # Sprint 5.2
+app.include_router(climate_report.router, prefix="/api/v1/climate", tags=["ClimateReport"])  # Sprint 5.3
 
 
 @app.get("/health")

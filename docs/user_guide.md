@@ -1,7 +1,7 @@
 # ACL Cables Procurement Intelligence Dashboard — User Guide
 
 > **Audience:** ACL Cables procurement team members using the dashboard day-to-day.
-> **Version:** Phase 3 | Last updated: 2026-05-13
+> **Version:** Phase 4 | Last updated: 2026-05-14
 
 ---
 
@@ -9,9 +9,9 @@
 
 The Procurement Intelligence Dashboard gives you a single view of the key forces that affect your import costs:
 
-- **USD/LKR exchange rate** — watch for windows to advance or defer orders
+- **USD/LKR exchange rate** — watch for windows to advance or defer orders; daily volatility alerts flag sudden moves
 - **LME Copper and Aluminium prices** — track 24-hour price movements and buy-dip signals
-- **Sri Lanka weather / flood risk** — early warning for logistics disruptions
+- **Sri Lanka weather** — early warning for flood risk, drought stress, and heatwaves with seasonal context
 - **News sentiment** — AI-scored headlines flagging geopolitical or market events
 
 The system does **not** predict prices or make purchasing decisions. It aggregates signals so your team can make better-timed decisions.
@@ -121,9 +121,9 @@ All triggered alerts appear here in reverse chronological order. Each row shows:
 
 - **Severity colour** — Red (critical/negative sentiment), Orange (high risk/price rise), Yellow (medium), Green (favourable buy signal), Blue (FX/informational)
 - **Time** — when the alert fired
-- **Type** — the alert category
+- **Type** — the alert category (e.g. Favourable, High Risk, Drought, Heatwave, FX)
 - **Rule name** — which rule triggered
-- **Message** — what condition was detected
+- **Message** — what condition was detected. Weather alert messages end with a **Seasonal** chip (green) when the event falls within the expected monsoon calendar, or an **Anomalous** chip (red) when elevated risk occurs outside the normal seasonal window — out-of-season events warrant closer attention.
 - **Notified** — whether an email notification was sent
 
 Use the search box to filter by rule name or message keyword. Use the row-limit dropdown to see more historical events.
@@ -147,15 +147,16 @@ Test whether your alert rules would have been useful over a historical period.
 
 ### UAT Scenarios
 
-Five pre-built procurement scenarios let you verify that your alert rules are correctly configured:
+Six pre-built procurement scenarios let you verify that your alert rules are correctly configured. Each scenario covers a specific combination of the seven Phase 4 alert rules:
 
-| Scenario | What it simulates |
-|----------|------------------|
-| **FX Buying Window** | USD/LKR drops to 283 — tests FX threshold alerts |
-| **Copper Market Dip** | LME copper falls 5.4% in 24h — tests commodity dip alerts |
-| **Monsoon Disruption** | Colombo, Gampaha, Kalutara at HIGH flood risk — tests weather alerts |
-| **Geopolitical Supply Risk** | 68% negative copper news — tests sentiment alerts |
-| **Combined Risk Event** | FX spike + flood + negative sentiment simultaneously |
+| Scenario | What it simulates | Rules tested |
+|----------|------------------|--------------|
+| **Aluminium Buy Window** | LME Aluminium landed cost drops 3.5% in 24h | Aluminium buy-window |
+| **Copper & Aluminium Market Dip** | Copper –5.4% and Aluminium –2.8% simultaneously | Both commodity buy-windows |
+| **Monsoon Supply Chain Disruption** | Colombo, Gampaha, Kalutara at HIGH flood risk | Flood risk logistics alert |
+| **Drought & Heatwave Advisory** | Western Province drought HIGH + temperature 38.5 °C | Drought risk + heatwave |
+| **FX Rate Shock** | USD/LKR surges 2.3% in one day to reach 336 | FX adverse rate + FX daily volatility |
+| **Combined Peak Stress Event** | All seven alert conditions activate simultaneously | All 7 rules |
 
 Click **Run** on any scenario to see which rules would fire and why. If a scenario does not trigger the rules you expect, review your thresholds in **Configurations → Alert Rules**.
 
@@ -169,12 +170,15 @@ Create, enable/disable, or delete alert rules.
 
 **Rule types:**
 
-| Type | Metric | Example threshold |
-|------|--------|------------------|
-| FX_THRESHOLD | usd_lkr | Less than 290 → buying opportunity |
-| COMMODITY_DIP | copper_price / aluminium_price | Less than –2% → 24h price drop |
-| WEATHER_RISK | flood_risk | Equals HIGH → logistics warning |
-| SENTIMENT_NEGATIVE | news_sentiment | COPPER:0.60 → 60% negative articles |
+| Type | Metric | Example threshold | Notes |
+|------|--------|------------------|-------|
+| FX_THRESHOLD | usd_lkr | Greater than 330 → adverse rate pressure | Add "Sustained for (hours)" to require the rate to hold above the threshold for multiple days before firing |
+| FX_THRESHOLD | usd_lkr_change_pct | Greater than 1.5% → daily volatility spike | Fires on a single-day move; useful alongside the absolute rate rule |
+| COMMODITY_DIP | copper_price / aluminium_price | Less than –2% → 24h landed cost drop | Based on LME price × USD/LKR — reflects true LKR import cost change |
+| WEATHER_RISK | flood_risk | Equals HIGH → logistics disruption | Add "Sustained for (hours)" for an advance trend warning before flooding peaks |
+| WEATHER_RISK | drought_risk | Equals HIGH → water stress warning | Based on 14-day rolling rainfall deficit against a 5 mm/day baseline |
+| WEATHER_RISK | heatwave | Greater than 35 °C → production risk | Fires only after 3+ consecutive days above threshold |
+| SENTIMENT_NEGATIVE | news_sentiment | COPPER:0.60 → 60% negative articles | Requires at least 5 articles in the period to avoid false signals on low-news days |
 
 **Manual check:** Click **Check Now** to immediately evaluate all rules against current data, rather than waiting for the next 15-minute scheduler run.
 
@@ -220,10 +224,13 @@ The FinBERT model reads each news headline and assigns it one of three labels:
 | Metric | Conservative | Moderate | Aggressive |
 |--------|-------------|---------|------------|
 | USD/LKR buy signal | < 285 | < 290 | < 295 |
-| USD/LKR pressure alert | > 320 | > 310 | > 305 |
+| USD/LKR pressure alert | > 330 | > 320 | > 310 |
+| USD/LKR daily volatility | > 2.0% | > 1.5% | > 1.0% |
 | Copper dip signal | < –5% 24h | < –3% 24h | < –2% 24h |
 | Aluminium dip signal | < –4% 24h | < –3% 24h | < –2% 24h |
 | Flood risk alert | CRITICAL | HIGH | MEDIUM |
+| Drought risk alert | CRITICAL | HIGH | MEDIUM |
+| Heatwave alert | > 38 °C (3 days) | > 36 °C (3 days) | > 35 °C (3 days) |
 | Sentiment alert | > 70% negative | > 60% negative | > 50% negative |
 
 Use the **Backtesting** tool to validate your thresholds before relying on them in production.
@@ -241,7 +248,7 @@ The free tier of NewsAPI.org delays articles by up to 24 hours. For real-time pr
 **Q: A rule fired but the alert seems wrong — what happened?**
 Review the message in the Alert Log. The most common causes are:
 - A threshold set too loosely (fires too often) — use Backtesting to recalibrate
-- A sentiment alert firing on a single low-volume news day — consider requiring a minimum article count
+- A weather alert during monsoon season — check the **Seasonal** chip on the alert; a green chip means the event is within the expected monsoon calendar and may require less urgent action than an out-of-season red **Anomalous** chip
 
 **Q: Can I export the data?**
 The backend exposes a full REST API at `http://localhost:8000/docs`. All data can be queried programmatically. Export to CSV is not built into the UI but can be done via the API.
@@ -251,4 +258,4 @@ Contact your IT team or the system administrator. See the Deployment Runbook (`d
 
 ---
 
-*This guide covers the Phase 3 release. For technical documentation, see `docs/deployment_runbook.md` and the API documentation at `/docs`.*
+*This guide covers the Phase 4 release. For technical documentation, see `docs/deployment_runbook.md` and the API documentation at `/docs`.*

@@ -54,6 +54,12 @@ export interface NewsItem {
   sentiment: string | null;
 }
 
+export interface CompositeCondition {
+  metric: string;
+  op: string;
+  value: string | number;
+}
+
 export interface AlertRule {
   id: number;
   created_at: string;
@@ -66,6 +72,7 @@ export interface AlertRule {
   enabled: boolean;
   email_recipients: string | null;
   trend_window_hours: number | null;
+  composite_condition: string | null; // Sprint 5.4: JSON-encoded CompositeCondition[]
 }
 
 export interface AlertEvent {

@@ -82,7 +82,8 @@ def score_unscored_news(db: Session, batch_size: int = 50) -> int:
     if not rows:
         return 0
 
-    texts = [r.headline for r in rows]
+    # Sprint 5.1: score on headline + summary (up to 512 chars) for richer signal
+    texts = [f"{r.headline}. {r.summary or ''}"[:512] for r in rows]
     try:
         results = pipe(texts, truncation=True, max_length=512)
     except Exception as exc:
@@ -90,15 +91,55 @@ def score_unscored_news(db: Session, batch_size: int = 50) -> int:
         return 0
 
     for row, result in zip(rows, results):
-        row.sentiment = result["label"].upper()
+        raw = result["label"].upper()
+        # Store the buyer-perspective label directly so the DB is always procurement-correct.
+        row.sentiment = _buyer_key(row.topic or "", raw.lower()).upper()
 
     db.commit()
     logger.info(f"[sentiment] Scored {len(rows)} news items.")
     return len(rows)
 
 
+def reclassify_all_topics(db: Session) -> int:
+    """Sprint 5.1: backfill topic reclassification for all existing news items. Returns count updated."""
+    from app.models.news import NewsItem
+    from app.collectors.news_collector import reclassify_topic
+
+    rows = db.query(NewsItem).all()
+    updated = 0
+    for row in rows:
+        classified = reclassify_topic(row.headline, row.summary)
+        if classified and classified != row.topic:
+            row.topic = classified
+            updated += 1
+    if updated:
+        db.commit()
+    logger.info(f"[sentiment] Reclassified {updated}/{len(rows)} news items.")
+    return updated
+
+
+# Topics where FinBERT market-positive = procurement-negative.
+# "Copper near record high" is good for traders but bad for buyers paying more.
+_BUYER_INVERT_TOPICS = {"COPPER", "ALUMINIUM"}
+
+
+def _buyer_key(topic: str, raw_label: str) -> str:
+    """Map raw FinBERT label to the buyer-perspective label for a given topic."""
+    if topic in _BUYER_INVERT_TOPICS:
+        if raw_label == "positive":
+            return "negative"
+        if raw_label == "negative":
+            return "positive"
+    return raw_label
+
+
 def get_sentiment_summary(db: Session, days: int = 7) -> list[dict]:
-    """Aggregated sentiment counts per topic for the past N days."""
+    """Aggregated sentiment counts per topic for the past N days.
+
+    Counts are expressed from the procurement-buyer perspective:
+    for COPPER and ALUMINIUM, FinBERT POSITIVE is inverted to NEGATIVE
+    because rising commodity prices are a cost increase for buyers.
+    """
     from datetime import datetime, timedelta, UTC
     from app.models.news import NewsItem
     from sqlalchemy import func
