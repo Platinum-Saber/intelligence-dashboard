@@ -1,16 +1,37 @@
 version: "3.9"
 
 services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: procurement_intel
+      POSTGRES_USER: acl
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acl -d procurement_intel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build: ./backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
     environment:
-      - DEBUG=true
-      - DATABASE_URL=sqlite:///./procurement_intel.db
+      - DEBUG=false
+      - DATABASE_URL=postgresql://acl:changeme@db:5432/procurement_intel
       - FRONTEND_URL=http://localhost:5173
+      - FX_API_KEY=bdb3f00ac03005cc3737bcf6
+      - NEWSAPI_KEY=7d8c7ce118a44be08c6ca145874e363f
+      - SENTIMENT_ENABLED=true
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -21,18 +42,5 @@ services:
       - backend
     restart: unless-stopped
 
-# For production with PostgreSQL, uncomment:
-#
-#  db:
-#    image: timescale/timescaledb:latest-pg16
-#    environment:
-#      POSTGRES_DB: procurement_intel
-#      POSTGRES_USER: acl
-#      POSTGRES_PASSWORD: changeme
-#    volumes:
-#      - pgdata:/var/lib/postgresql/data
-#    ports:
-#      - "5432:5432"
-#
-# volumes:
-#   pgdata:
+volumes:
+  pgdata:

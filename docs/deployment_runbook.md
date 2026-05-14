@@ -1,7 +1,7 @@
 # ACL Cables Procurement Intelligence Dashboard — Deployment Runbook
 
 > **Audience:** System administrators and developers deploying or maintaining the dashboard.
-> **Version:** Phase 3 | Last updated: 2026-05-13
+> **Version:** Phase 3 | Last updated: 2026-05-14
 
 ---
 
@@ -102,19 +102,25 @@ FRONTEND_URL=https://procurement-dashboard.acl.lk
 
 No setup required. SQLite file is created automatically at `backend/procurement_intel.db`.
 
-### Production (PostgreSQL)
+### Production (PostgreSQL / Docker Compose)
 
-1. Install PostgreSQL 15+ and optionally TimescaleDB for time-series optimisation
+The `db` service in `docker-compose.yml` runs TimescaleDB (PostgreSQL 16). Tables are created automatically on first startup via `Base.metadata.create_all` — no manual migration or SQL needed.
+
+The `pgdata` named volume persists data across container restarts. To connect directly:
+
+```bash
+docker-compose exec db psql -U acl -d procurement_intel
+```
+
+For a standalone PostgreSQL instance (outside Docker):
 
 ```sql
 -- As postgres superuser:
-CREATE USER acl_user WITH PASSWORD 'your-password';
-CREATE DATABASE procurement_intel OWNER acl_user;
+CREATE USER acl WITH PASSWORD 'your-password';
+CREATE DATABASE procurement_intel OWNER acl;
 ```
 
-2. Set `DATABASE_URL=postgresql://acl_user:password@localhost:5432/procurement_intel` in `.env`
-
-3. Tables are created automatically on first startup (`Base.metadata.create_all`)
+Then set `DATABASE_URL=postgresql://acl:your-password@localhost:5432/procurement_intel` in the backend environment.
 
 ### Reseeding the database
 
@@ -132,53 +138,45 @@ uv run python -m debug.seed
 
 ## Production Deployment (Docker Compose)
 
-### 1. Build and start
+### 1. Set API keys
+
+Edit `docker-compose.yml` and fill in the environment variables under the `backend` service:
+
+```yaml
+environment:
+  - FX_API_KEY=your-exchangerate-api-key     # exchangerate-api.com
+  - NEWSAPI_KEY=your-newsapi-key             # newsapi.org
+  - SENTIMENT_ENABLED=false                  # true only if you want FinBERT (~400 MB download)
+```
+
+### 2. Build and start
 
 ```bash
 docker-compose up -d --build
 ```
 
-This starts:
-- `backend` — FastAPI on port 8000
-- `frontend` — Vite/Nginx on port 80
+This starts three services:
+- `db` — TimescaleDB (PostgreSQL 16) on port 5432
+- `backend` — FastAPI on port 8000 (waits for `db` health check before starting)
+- `frontend` — React/Nginx on port 5173
 
-### 2. Environment variables for Docker
+The backend will not start until PostgreSQL passes its health check (`pg_isready`). On first boot, `create_all` creates the schema automatically — no manual migration needed.
 
-Pass environment variables via `docker-compose.yml` or a `.env` file at the project root. Example `docker-compose.yml` override:
+### 3. Verify
 
-```yaml
-services:
-  backend:
-    environment:
-      - DEBUG=false
-      - DATABASE_URL=postgresql://acl_user:password@db:5432/procurement_intel
-      - FX_API_KEY=${FX_API_KEY}
-      - NEWSAPI_KEY=${NEWSAPI_KEY}
-      - SENTIMENT_ENABLED=true
-      - FRONTEND_URL=https://your-domain.com
-  frontend:
-    environment:
-      - VITE_API_URL=https://your-domain.com/api
+```bash
+docker-compose ps                        # all three services should be "Up"
+curl http://localhost:8000/health        # → {"status": "ok", "debug": false}
+docker-compose logs backend --tail=30   # look for "[scheduler] FX collected:" within 20 seconds
 ```
 
-### 3. Adding PostgreSQL to Docker Compose
+### 4. Resetting the database (Docker)
 
-Uncomment the `db` service block in `docker-compose.yml`:
+To wipe all data and start fresh without rebuilding images:
 
-```yaml
-  db:
-    image: timescale/timescaledb:latest-pg15
-    environment:
-      POSTGRES_USER: acl_user
-      POSTGRES_PASSWORD: your-password
-      POSTGRES_DB: procurement_intel
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
-volumes:
-  pgdata:
+```bash
+docker-compose down -v          # stops containers and removes the pgdata volume
+docker-compose up -d            # recreates schema on next start
 ```
 
 ---
@@ -277,12 +275,14 @@ The APScheduler runs in-process with the FastAPI backend. Jobs run on the follow
 
 | Job | Interval | Notes |
 |-----|----------|-------|
-| FX rate collection | Every 15 min | Requires `FX_API_KEY` |
+| FX rate collection | Every 20 min | Requires `FX_API_KEY`; ~2,160 req/month (well within 1,500/month free tier at current rate — upgrade if reducing interval) |
 | Alert rule check | Every 15 min | Evaluates rules, creates events, sends emails |
-| Commodity prices | Every 1 hour | Unofficial Yahoo Finance endpoint |
-| Weather collection | Every 1 hour | Open-Meteo, always runs |
-| News collection | Every 1 hour | Requires `NEWSAPI_KEY` |
+| Commodity prices | Every 1 hour | Unofficial Yahoo Finance endpoint; no key required |
+| Weather collection | Every 1 hour | Open-Meteo; free, keyless, always runs |
+| News collection | Every 3 hours | Requires `NEWSAPI_KEY`; 5 queries × 8 ticks = 40 req/day (under 100/day free limit) |
 | Sentiment scoring | Every 2 hours | Requires `SENTIMENT_ENABLED=true` |
+
+All four data collection jobs fire **immediately on startup** (`next_run_time=now`) — no waiting for the first interval before data appears.
 
 Jobs run as daemon threads. If the backend process is killed, all jobs stop. Restart the backend to resume.
 
@@ -335,9 +335,9 @@ curl https://huggingface.co/ProsusAI/finbert
 
 Check **Configurations → Data Sources** in the dashboard. If a source shows as "degraded" or "down":
 
-- **FX rate stale:** Check `FX_API_KEY` is set and not rate-limited (1,500 req/month on free tier)
+- **FX rate stale:** Check `FX_API_KEY` is set and not rate-limited (free tier: 1,500 req/month; current schedule uses ~2,160 — monitor usage or reduce to 30 min interval)
 - **Commodity prices stale:** Yahoo Finance endpoint may be down — this is a known fragility; restart the backend to retry
-- **News stale:** Check `NEWSAPI_KEY` and daily request quota (100 req/day on free tier)
+- **News stale:** Check `NEWSAPI_KEY` and daily request quota (free tier: 100 req/day; current 3-hour schedule uses ~40 req/day)
 - **Weather stale:** Open-Meteo is the most reliable source; if this is down, it is an upstream outage
 
 ### Alert emails not sending

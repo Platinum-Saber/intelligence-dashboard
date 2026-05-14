@@ -61,9 +61,38 @@ def _compare(value: float, comparison: str, threshold: float) -> bool:
     return False
 
 
+def _landed_cost_change_pct(
+    price_now: float,
+    fx_now: float,
+    price_ref: float,
+    fx_ref: float,
+) -> tuple[float, float, float] | None:
+    """
+    Returns (change_pct, landed_cost_now_lkr, landed_cost_ref_lkr) or None.
+    Landed cost = LME price (USD/t) × USD/LKR rate.
+    """
+    landed_now = price_now * fx_now
+    landed_ref = price_ref * fx_ref
+    if landed_ref == 0:
+        return None
+    change_pct = (landed_now - landed_ref) / landed_ref * 100
+    return round(change_pct, 2), round(landed_now, 0), round(landed_ref, 0)
+
+
+def _price_before(db: Session, model, cutoff: datetime, extra_filter=None) -> object | None:
+    """Most recent row with timestamp <= cutoff."""
+    q = db.query(model).filter(model.timestamp <= cutoff)
+    if extra_filter is not None:
+        q = q.filter(extra_filter)
+    return q.order_by(model.timestamp.desc()).first()
+
+
 def check_alerts(db: Session) -> list[AlertEvent]:
     """Evaluate all enabled rules against current data; persist triggered events."""
+    from datetime import timedelta
     from app.services import fx_service, commodity_service, weather_service
+    from app.models.fx import FXRate
+    from app.models.commodities import CommodityPrice
 
     rules = db.query(AlertRule).filter(AlertRule.enabled.is_(True)).all()
     triggered: list[AlertEvent] = []
@@ -73,6 +102,16 @@ def check_alerts(db: Session) -> list[AlertEvent]:
     aluminium_summary = commodity_service.get_summary(db, "ALUMINIUM")
     high_risk_weather = weather_service.get_high_risk(db)
 
+    # Reference readings from 24h ago (most recent reading at or before that point)
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    fx_ref_row     = _price_before(db, FXRate, cutoff)
+    cu_ref_row     = _price_before(db, CommodityPrice, cutoff, CommodityPrice.symbol == "COPPER")
+    al_ref_row     = _price_before(db, CommodityPrice, cutoff, CommodityPrice.symbol == "ALUMINIUM")
+
+    fx_ref = fx_ref_row.usd_lkr    if fx_ref_row else None
+    cu_ref = cu_ref_row.price_usd  if cu_ref_row else None
+    al_ref = al_ref_row.price_usd  if al_ref_row else None
+
     for rule in rules:
         message: str | None = None
 
@@ -80,13 +119,25 @@ def check_alerts(db: Session) -> list[AlertEvent]:
             if rule.threshold_value is not None and _compare(fx_latest.usd_lkr, rule.comparison, rule.threshold_value):
                 message = f"USD/LKR is {fx_latest.usd_lkr} — {rule.comparison} threshold {rule.threshold_value}"
 
-        elif rule.metric == "copper_price" and copper_summary:
-            if rule.threshold_value is not None and _compare(copper_summary.change_24h_pct, rule.comparison, rule.threshold_value):
-                message = f"Copper 24h change: {copper_summary.change_24h_pct}% — {rule.comparison} threshold {rule.threshold_value}%"
+        elif rule.metric == "copper_price" and copper_summary and fx_latest and cu_ref is not None and fx_ref is not None:
+            result = _landed_cost_change_pct(copper_summary.current_price_usd, fx_latest.usd_lkr, cu_ref, fx_ref)
+            if result and rule.threshold_value is not None and _compare(result[0], rule.comparison, rule.threshold_value):
+                change_pct, landed_now, landed_ref = result
+                message = (
+                    f"Copper landed cost 24h change: {change_pct:+.2f}% "
+                    f"(LKR {landed_ref:,.0f}/t → LKR {landed_now:,.0f}/t) — "
+                    f"{rule.comparison} threshold {rule.threshold_value}%"
+                )
 
-        elif rule.metric == "aluminium_price" and aluminium_summary:
-            if rule.threshold_value is not None and _compare(aluminium_summary.change_24h_pct, rule.comparison, rule.threshold_value):
-                message = f"Aluminium 24h change: {aluminium_summary.change_24h_pct}% — {rule.comparison} threshold {rule.threshold_value}%"
+        elif rule.metric == "aluminium_price" and aluminium_summary and fx_latest and al_ref is not None and fx_ref is not None:
+            result = _landed_cost_change_pct(aluminium_summary.current_price_usd, fx_latest.usd_lkr, al_ref, fx_ref)
+            if result and rule.threshold_value is not None and _compare(result[0], rule.comparison, rule.threshold_value):
+                change_pct, landed_now, landed_ref = result
+                message = (
+                    f"Aluminium landed cost 24h change: {change_pct:+.2f}% "
+                    f"(LKR {landed_ref:,.0f}/t → LKR {landed_now:,.0f}/t) — "
+                    f"{rule.comparison} threshold {rule.threshold_value}%"
+                )
 
         elif rule.metric == "flood_risk" and rule.threshold_text:
             flagged = [loc.location_name for loc in high_risk_weather if loc.flood_risk == rule.threshold_text]

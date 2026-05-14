@@ -3,7 +3,7 @@ Comprehensive unit tests for weather_service.py
 Tests cover all functions, edge cases, schema validation, and error handling.
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from unittest.mock import MagicMock, patch
 from sqlalchemy.orm import Session
 
@@ -63,7 +63,7 @@ class TestGetLatestAll:
 
     def test_get_latest_all_multiple_readings_same_location(self, test_db: Session):
         """Should return only the most recent reading per location."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         readings_data = [
             {
                 "timestamp": now - timedelta(hours=3),
@@ -123,7 +123,7 @@ class TestGetLatestAll:
     def test_get_latest_all_null_flood_risk_defaults_to_low(self, test_db: Session):
         """When flood_risk is NULL, should default to 'LOW'."""
         data = {
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
             "location_type": "sri_lanka_district",
             "location_name": "Colombo",
             "rainfall_mm": 10.0,
@@ -142,7 +142,7 @@ class TestGetLatestAll:
     def test_get_latest_all_null_values_preserved(self, test_db: Session):
         """Should preserve NULL values for optional fields."""
         data = {
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
             "location_type": "sri_lanka_district",
             "location_name": "Colombo",
             "rainfall_mm": None,
@@ -163,7 +163,7 @@ class TestGetLatestAll:
         """Results should be ordered by location_type, then location_name."""
         readings = [
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="supplier_port",
                 location_name="Zebra Port",
                 rainfall_mm=10.0,
@@ -172,7 +172,7 @@ class TestGetLatestAll:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Apple District",
                 rainfall_mm=20.0,
@@ -181,7 +181,7 @@ class TestGetLatestAll:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="supplier_port",
                 location_name="Adam Port",
                 rainfall_mm=15.0,
@@ -225,7 +225,7 @@ class TestGetHistory:
 
     def test_get_history_multiple_readings_same_location(self, test_db: Session):
         """Should return all readings for location within date range."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         readings = [
             WeatherReading(
                 timestamp=now - timedelta(days=5),
@@ -264,7 +264,7 @@ class TestGetHistory:
 
     def test_get_history_filters_by_days(self, test_db: Session):
         """Should only return readings within the specified days window."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         readings = [
             WeatherReading(
                 timestamp=now - timedelta(days=40),
@@ -305,7 +305,7 @@ class TestGetHistory:
 
     def test_get_history_default_days_30(self, test_db: Session):
         """Should default to 30 days when not specified."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         reading = WeatherReading(
             timestamp=now - timedelta(days=10),
             location_type="sri_lanka_district",
@@ -324,7 +324,7 @@ class TestGetHistory:
 
     def test_get_history_ordered_by_timestamp_ascending(self, test_db: Session):
         """Results should be ordered by timestamp ascending."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         readings = [
             WeatherReading(
                 timestamp=now - timedelta(days=5),
@@ -367,7 +367,7 @@ class TestGetHistory:
     def test_get_history_location_name_case_sensitive(self, test_db: Session):
         """Location filtering should be case-sensitive."""
         test_db.add(WeatherReading(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             location_type="sri_lanka_district",
             location_name="Colombo",
             rainfall_mm=20.0,
@@ -413,7 +413,7 @@ class TestGetHighRisk:
         """Should default to HIGH and CRITICAL risk levels."""
         readings = [
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Colombo",
                 rainfall_mm=50.0,
@@ -422,7 +422,7 @@ class TestGetHighRisk:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Galle",
                 rainfall_mm=40.0,
@@ -445,7 +445,7 @@ class TestGetHighRisk:
         """Should exclude LOW and MEDIUM risk readings."""
         readings = [
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Colombo",
                 rainfall_mm=50.0,
@@ -454,7 +454,7 @@ class TestGetHighRisk:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Kandy",
                 rainfall_mm=5.0,
@@ -463,7 +463,7 @@ class TestGetHighRisk:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Galle",
                 rainfall_mm=20.0,
@@ -485,7 +485,7 @@ class TestGetHighRisk:
         """Should filter by custom risk levels when provided."""
         readings = [
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Colombo",
                 rainfall_mm=50.0,
@@ -494,7 +494,7 @@ class TestGetHighRisk:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Kandy",
                 rainfall_mm=5.0,
@@ -503,7 +503,7 @@ class TestGetHighRisk:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Galle",
                 rainfall_mm=20.0,
@@ -527,7 +527,7 @@ class TestGetHighRisk:
         """Should filter only HIGH when specified."""
         readings = [
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Colombo",
                 rainfall_mm=50.0,
@@ -536,7 +536,7 @@ class TestGetHighRisk:
                 source="DMC",
             ),
             WeatherReading(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 location_type="sri_lanka_district",
                 location_name="Galle",
                 rainfall_mm=40.0,
@@ -555,7 +555,7 @@ class TestGetHighRisk:
 
     def test_get_high_risk_returns_latest_per_location(self, test_db: Session):
         """Should return only latest reading per location."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         readings = [
             WeatherReading(
                 timestamp=now - timedelta(hours=2),
@@ -587,7 +587,7 @@ class TestGetHighRisk:
     def test_get_high_risk_empty_risk_levels_list(self, test_db: Session):
         """Should return empty list when risk_levels is empty."""
         test_db.add(WeatherReading(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             location_type="sri_lanka_district",
             location_name="Colombo",
             rainfall_mm=50.0,
@@ -604,7 +604,7 @@ class TestGetHighRisk:
     def test_get_high_risk_returns_correct_schema(self, test_db: Session):
         """Should return WeatherLatest schema objects."""
         test_db.add(WeatherReading(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             location_type="sri_lanka_district",
             location_name="Colombo",
             rainfall_mm=50.0,
@@ -623,7 +623,7 @@ class TestGetHighRisk:
     def test_get_high_risk_invalid_risk_level_ignored(self, test_db: Session):
         """Invalid risk level values should be filtered out."""
         test_db.add(WeatherReading(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             location_type="sri_lanka_district",
             location_name="Colombo",
             rainfall_mm=50.0,

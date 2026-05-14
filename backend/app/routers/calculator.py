@@ -75,13 +75,17 @@ def cost_history(
         .all()
     )
 
-    # Last FX reading per calendar day (ascending → last one wins)
+    # Last reading per calendar day (ascending → last one wins) for both series
     fx_by_date: dict[date, float] = {}
     for r in fx_rows:
         fx_by_date[r.timestamp.date()] = r.usd_lkr
 
-    result: list[CostHistoryPoint] = []
+    comm_by_date: dict[date, object] = {}
     for c in commodities:
+        comm_by_date[c.timestamp.date()] = c
+
+    result: list[CostHistoryPoint] = []
+    for c in sorted(comm_by_date.values(), key=lambda r: r.timestamp):
         day = c.timestamp.date()
         rate = fx_by_date.get(day)
         if rate is None:

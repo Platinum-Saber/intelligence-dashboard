@@ -4,7 +4,7 @@ Tests cover sentiment scoring, batch processing, pipeline loading, error handlin
 """
 import pytest
 from unittest.mock import MagicMock, patch, Mock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from sqlalchemy.orm import Session
 
 from app.services.sentiment_service import (
@@ -254,7 +254,7 @@ class TestScoreUnscoredNews:
         ss_module._load_attempted = True
 
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="Good market news",
             summary="Summary",
             url="https://example.com",
@@ -286,7 +286,7 @@ class TestScoreUnscoredNews:
 
         for i, sentiment in enumerate(["positive", "negative", "neutral"]):
             test_db.add(NewsItem(
-                published_at=datetime.utcnow() - timedelta(hours=i),
+                published_at=datetime.now(UTC) - timedelta(hours=i),
                 headline=f"Headline {i}",
                 summary=f"Summary {i}",
                 url=f"https://example.com/{i}",
@@ -316,7 +316,7 @@ class TestScoreUnscoredNews:
         # Create 10 unscored items
         for i in range(10):
             test_db.add(NewsItem(
-                published_at=datetime.utcnow() - timedelta(hours=i),
+                published_at=datetime.now(UTC) - timedelta(hours=i),
                 headline=f"Headline {i}",
                 summary=f"Summary {i}",
                 url=f"https://example.com/{i}",
@@ -347,7 +347,7 @@ class TestScoreUnscoredNews:
 
         # Add scored item
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="Already scored",
             summary="Summary",
             url="https://example.com/scored",
@@ -358,7 +358,7 @@ class TestScoreUnscoredNews:
         ))
         # Add unscored item
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="Unscored",
             summary="Summary",
             url="https://example.com/unscored",
@@ -385,7 +385,7 @@ class TestScoreUnscoredNews:
         ss_module._load_attempted = True
 
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="News",
             summary="Summary",
             url="https://example.com",
@@ -411,7 +411,7 @@ class TestScoreUnscoredNews:
         # Create many items
         for i in range(60):
             test_db.add(NewsItem(
-                published_at=datetime.utcnow() - timedelta(hours=i),
+                published_at=datetime.now(UTC) - timedelta(hours=i),
                 headline=f"Headline {i}",
                 summary=f"Summary {i}",
                 url=f"https://example.com/{i}",
@@ -442,7 +442,7 @@ class TestGetSentimentSummary:
     def test_get_sentiment_summary_single_topic(self, test_db: Session):
         """Should return summary for single topic."""
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="FX News",
             summary="Summary",
             url="https://example.com",
@@ -465,10 +465,10 @@ class TestGetSentimentSummary:
     def test_get_sentiment_summary_multiple_sentiments(self, test_db: Session):
         """Should count items by sentiment."""
         items = [
-            NewsItem(published_at=datetime.utcnow(), headline="P1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="P2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="N1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEGATIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="N2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEUTRAL"),
+            NewsItem(published_at=datetime.now(UTC), headline="P1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="P2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="N1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEGATIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="N2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEUTRAL"),
         ]
         test_db.add_all(items)
         test_db.commit()
@@ -484,9 +484,9 @@ class TestGetSentimentSummary:
     def test_get_sentiment_summary_unscored_items(self, test_db: Session):
         """Should count items with None sentiment as 'unscored'."""
         items = [
-            NewsItem(published_at=datetime.utcnow(), headline="P1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="U1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment=None),
-            NewsItem(published_at=datetime.utcnow(), headline="U2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment=None),
+            NewsItem(published_at=datetime.now(UTC), headline="P1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="U1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment=None),
+            NewsItem(published_at=datetime.now(UTC), headline="U2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment=None),
         ]
         test_db.add_all(items)
         test_db.commit()
@@ -500,10 +500,10 @@ class TestGetSentimentSummary:
     def test_get_sentiment_summary_multiple_topics(self, test_db: Session):
         """Should aggregate separately for each topic."""
         items = [
-            NewsItem(published_at=datetime.utcnow(), headline="FX1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="FX2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEGATIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="CU1", summary="S", url="u", source="s", topic="COPPER", relevance_score=0.8, sentiment="POSITIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="CU2", summary="S", url="u", source="s", topic="COPPER", relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="FX1", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="FX2", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEGATIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="CU1", summary="S", url="u", source="s", topic="COPPER", relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="CU2", summary="S", url="u", source="s", topic="COPPER", relevance_score=0.8, sentiment="POSITIVE"),
         ]
         test_db.add_all(items)
         test_db.commit()
@@ -518,7 +518,7 @@ class TestGetSentimentSummary:
 
     def test_get_sentiment_summary_default_days_7(self, test_db: Session):
         """Should default to 7 days when not specified."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(published_at=now - timedelta(days=3), headline="Recent", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
             NewsItem(published_at=now - timedelta(days=10), headline="Old", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEGATIVE"),
@@ -534,7 +534,7 @@ class TestGetSentimentSummary:
 
     def test_get_sentiment_summary_custom_days(self, test_db: Session):
         """Should filter by custom days parameter."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(published_at=now - timedelta(days=15), headline="Recent", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
             NewsItem(published_at=now - timedelta(days=40), headline="Old", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="NEGATIVE"),
@@ -551,8 +551,8 @@ class TestGetSentimentSummary:
     def test_get_sentiment_summary_excludes_none_topic(self, test_db: Session):
         """Should exclude items with None topic."""
         items = [
-            NewsItem(published_at=datetime.utcnow(), headline="WithTopic", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
-            NewsItem(published_at=datetime.utcnow(), headline="NoTopic", summary="S", url="u", source="s", topic=None, relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="WithTopic", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE"),
+            NewsItem(published_at=datetime.now(UTC), headline="NoTopic", summary="S", url="u", source="s", topic=None, relevance_score=0.8, sentiment="POSITIVE"),
         ]
         test_db.add_all(items)
         test_db.commit()
@@ -565,7 +565,7 @@ class TestGetSentimentSummary:
     def test_get_sentiment_summary_includes_period_days(self, test_db: Session):
         """Should include period_days in result."""
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="News",
             summary="S",
             url="u",
@@ -583,7 +583,7 @@ class TestGetSentimentSummary:
 
     def test_get_sentiment_summary_complex_aggregation(self, test_db: Session):
         """Should handle complex aggregation with multiple topics and sentiments."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             # FX: 3 positive, 2 negative, 1 neutral, 1 unscored
             NewsItem(published_at=now - timedelta(days=i), headline=f"FX_P{i}", summary="S", url="u", source="s", topic="FX", relevance_score=0.8, sentiment="POSITIVE")
@@ -622,7 +622,7 @@ class TestGetSentimentSummary:
     def test_get_sentiment_summary_invalid_sentiment_mapped_to_unscored(self, test_db: Session):
         """Should map invalid sentiment values to 'unscored'."""
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="Invalid",
             summary="S",
             url="u",

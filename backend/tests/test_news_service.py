@@ -3,7 +3,7 @@ Comprehensive unit tests for news_service.py
 Tests cover all functions, edge cases, schema validation, filtering, and error handling.
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from sqlalchemy.orm import Session
 
 from app.services.news_service import (
@@ -51,7 +51,7 @@ class TestGetRecent:
         """Should return multiple news items."""
         items = [
             NewsItem(
-                published_at=datetime.utcnow() - timedelta(days=1),
+                published_at=datetime.now(UTC) - timedelta(days=1),
                 headline="Item 1",
                 summary="Summary 1",
                 url="https://example.com/1",
@@ -61,7 +61,7 @@ class TestGetRecent:
                 sentiment="NEUTRAL",
             ),
             NewsItem(
-                published_at=datetime.utcnow() - timedelta(days=2),
+                published_at=datetime.now(UTC) - timedelta(days=2),
                 headline="Item 2",
                 summary="Summary 2",
                 url="https://example.com/2",
@@ -80,7 +80,7 @@ class TestGetRecent:
 
     def test_get_recent_default_days_7(self, test_db: Session):
         """Should default to 7 days when not specified."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(
                 published_at=now - timedelta(days=3),
@@ -113,7 +113,7 @@ class TestGetRecent:
 
     def test_get_recent_filters_by_days(self, test_db: Session):
         """Should only return items published within specified days."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(
                 published_at=now - timedelta(days=3),
@@ -146,7 +146,7 @@ class TestGetRecent:
 
     def test_get_recent_ordered_by_published_descending(self, test_db: Session):
         """Should return items ordered by published_at descending (newest first)."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(
                 published_at=now - timedelta(days=5),
@@ -191,7 +191,7 @@ class TestGetRecent:
 
     def test_get_recent_default_limit_50(self, test_db: Session):
         """Should default to limit of 50 items when not specified."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         # Create 60 items
         items = [
             NewsItem(
@@ -215,7 +215,7 @@ class TestGetRecent:
 
     def test_get_recent_custom_limit(self, test_db: Session):
         """Should respect custom limit parameter."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(
                 published_at=now - timedelta(hours=i),
@@ -249,7 +249,7 @@ class TestGetRecent:
         """Should filter by valid topic when specified."""
         items = [
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="FX News",
                 summary="Summary",
                 url="https://example.com/1",
@@ -259,7 +259,7 @@ class TestGetRecent:
                 sentiment="NEUTRAL",
             ),
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="Copper News",
                 summary="Summary",
                 url="https://example.com/2",
@@ -269,7 +269,7 @@ class TestGetRecent:
                 sentiment="POSITIVE",
             ),
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="Trade News",
                 summary="Summary",
                 url="https://example.com/3",
@@ -291,7 +291,7 @@ class TestGetRecent:
     def test_get_recent_topic_filter_case_insensitive(self, test_db: Session):
         """Topic filter should be case-insensitive (converts to uppercase)."""
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="FX News",
             summary="Summary",
             url="https://example.com/1",
@@ -310,7 +310,7 @@ class TestGetRecent:
     def test_get_recent_topic_filter_invalid_ignored(self, test_db: Session):
         """Invalid topic should be ignored (returns all items)."""
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="FX News",
             summary="Summary",
             url="https://example.com/1",
@@ -331,7 +331,7 @@ class TestGetRecent:
         """Should be able to filter by each valid topic."""
         items = [
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="FX News",
                 topic="FX",
                 summary="Summary",
@@ -341,7 +341,7 @@ class TestGetRecent:
                 sentiment="NEUTRAL",
             ),
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="Copper News",
                 topic="COPPER",
                 summary="Summary",
@@ -351,7 +351,7 @@ class TestGetRecent:
                 sentiment="POSITIVE",
             ),
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="Aluminium News",
                 topic="ALUMINIUM",
                 summary="Summary",
@@ -361,7 +361,7 @@ class TestGetRecent:
                 sentiment="NEGATIVE",
             ),
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="Trade News",
                 topic="TRADE",
                 summary="Summary",
@@ -371,7 +371,7 @@ class TestGetRecent:
                 sentiment="NEUTRAL",
             ),
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="Logistics News",
                 topic="LOGISTICS",
                 summary="Summary",
@@ -393,7 +393,7 @@ class TestGetRecent:
         """When topic is None, should return items from all topics."""
         items = [
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="FX News",
                 topic="FX",
                 summary="Summary",
@@ -403,7 +403,7 @@ class TestGetRecent:
                 sentiment="NEUTRAL",
             ),
             NewsItem(
-                published_at=datetime.utcnow(),
+                published_at=datetime.now(UTC),
                 headline="Copper News",
                 topic="COPPER",
                 summary="Summary",
@@ -443,7 +443,7 @@ class TestGetRecent:
     def test_get_recent_null_optional_fields(self, test_db: Session):
         """Should handle NULL values in optional fields."""
         test_db.add(NewsItem(
-            published_at=datetime.utcnow(),
+            published_at=datetime.now(UTC),
             headline="News Item",
             summary=None,
             url=None,
@@ -467,7 +467,7 @@ class TestGetRecent:
 
     def test_get_recent_combines_days_and_topic_filters(self, test_db: Session):
         """Should apply both days and topic filters together."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(
                 published_at=now - timedelta(days=1),
@@ -511,7 +511,7 @@ class TestGetRecent:
 
     def test_get_recent_combines_days_topic_and_limit(self, test_db: Session):
         """Should apply days, topic, and limit filters together."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(
                 published_at=now - timedelta(hours=i),
@@ -534,7 +534,7 @@ class TestGetRecent:
 
     def test_get_recent_no_filters(self, test_db: Session):
         """Should work with no filters (all defaults)."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         items = [
             NewsItem(
                 published_at=now - timedelta(days=i),
@@ -577,7 +577,7 @@ class TestGetRecent:
 
     def test_get_recent_schema_validation(self, test_db: Session):
         """Should properly validate and convert to schema with all fields."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         test_db.add(NewsItem(
             published_at=now,
             headline="Comprehensive Test",

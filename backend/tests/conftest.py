@@ -3,7 +3,7 @@ Shared pytest fixtures and configuration for all tests.
 """
 import os
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from unittest.mock import MagicMock, patch
@@ -32,7 +32,7 @@ def test_db() -> Session:
 def sample_weather_reading():
     """Return sample weather reading data."""
     return {
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(UTC),
         "location_type": "sri_lanka_district",
         "location_name": "Colombo",
         "rainfall_mm": 25.5,
@@ -46,7 +46,7 @@ def sample_weather_reading():
 def sample_weather_reading_critical():
     """Return critical flood risk weather data."""
     return {
-        "timestamp": datetime.utcnow() - timedelta(hours=2),
+        "timestamp": datetime.now(UTC) - timedelta(hours=2),
         "location_type": "supplier_port",
         "location_name": "Port City",
         "rainfall_mm": 150.0,
@@ -60,7 +60,7 @@ def sample_weather_reading_critical():
 def sample_weather_reading_high_risk():
     """Return high flood risk weather data."""
     return {
-        "timestamp": datetime.utcnow() - timedelta(hours=1),
+        "timestamp": datetime.now(UTC) - timedelta(hours=1),
         "location_type": "sri_lanka_district",
         "location_name": "Galle",
         "rainfall_mm": 80.0,
@@ -74,7 +74,7 @@ def sample_weather_reading_high_risk():
 def sample_weather_reading_low_risk():
     """Return low risk weather data."""
     return {
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(UTC),
         "location_type": "sri_lanka_district",
         "location_name": "Kandy",
         "rainfall_mm": 5.0,
@@ -88,7 +88,7 @@ def sample_weather_reading_low_risk():
 def sample_news_item():
     """Return sample news item data."""
     return {
-        "published_at": datetime.utcnow(),
+        "published_at": datetime.now(UTC),
         "headline": "FX Markets React to Trade Tensions",
         "summary": "Currency markets show volatility amid trade disputes.",
         "url": "https://example.com/news/fx-markets",
@@ -103,7 +103,7 @@ def sample_news_item():
 def sample_news_item_copper():
     """Return sample news item for copper topic."""
     return {
-        "published_at": datetime.utcnow() - timedelta(days=2),
+        "published_at": datetime.now(UTC) - timedelta(days=2),
         "headline": "Copper Prices Surge on Supply Concerns",
         "summary": "Global copper supply shortage drives prices higher.",
         "url": "https://example.com/news/copper",
@@ -118,7 +118,7 @@ def sample_news_item_copper():
 def sample_news_item_no_sentiment():
     """Return sample news item without sentiment."""
     return {
-        "published_at": datetime.utcnow() - timedelta(days=1),
+        "published_at": datetime.now(UTC) - timedelta(days=1),
         "headline": "Logistics Sector Faces New Challenges",
         "summary": "Industry grapples with operational complexities.",
         "url": "https://example.com/news/logistics",
@@ -133,7 +133,7 @@ def sample_news_item_no_sentiment():
 def sample_news_item_invalid_topic():
     """Return news item with invalid topic (should be filtered)."""
     return {
-        "published_at": datetime.utcnow(),
+        "published_at": datetime.now(UTC),
         "headline": "Random Market News",
         "summary": "Not relevant to tracked topics.",
         "url": "https://example.com/news/random",

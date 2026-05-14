@@ -22,40 +22,53 @@ from app.schemas.backtest import (
 
 
 # ── Pre-defined UAT scenarios ─────────────────────────────────────────────────
+#
+# Scenarios are designed around the 4 live alert rules:
+#   1. Copper Price Dip - Buy Window       (copper_price  lt -2.0 %)
+#   2. Aluminium Price Dip - Buy Window    (aluminium_price lt -2.0 %)
+#   3. Sri Lanka Flood Risk - Logistics Alert (flood_risk eq HIGH)
+#   4. FX Adverse Rate - LKR Weakening     (usd_lkr gt 330.0)
+#
+# For UAT scenarios FX is treated as a point-in-time snapshot (no prev_usd_lkr),
+# so landed-cost change % == USD price change % (constant FX assumption).
+# This is consistent with _evaluate_rule_against_snapshot() below.
 
 UAT_SCENARIOS: list[dict] = [
     {
-        "id": "fx_buying_window",
-        "name": "FX Buying Window",
+        "id": "aluminium_buy_window",
+        "name": "Aluminium Buy Window",
         "description": (
-            "USD/LKR drops to 283 — a favourable import window. "
-            "Tests whether FX threshold alerts fire correctly for proactive procurement."
+            "LME Aluminium landed cost drops 3.5% in 24h following an LME price correction "
+            "while FX holds steady. Tests whether the Aluminium buy-window alert fires and "
+            "procurement is notified to lock in a favourable rate."
         ),
         "conditions": {
-            "usd_lkr": 283.0,
-            "copper_change_pct": -0.3,
-            "aluminium_change_pct": 0.1,
+            "usd_lkr": 323.5,
+            "copper_change_pct": -0.5,        # < 2 % — Rule 1 should NOT fire
+            "aluminium_change_pct": -3.5,     # > 2 % drop — Rule 2 SHOULD fire
             "high_risk_locations": [],
             "sentiment_by_topic": {
-                "FX": {"positive": 60, "negative": 15, "neutral": 25},
-                "COPPER": {"positive": 45, "negative": 30, "neutral": 25},
+                "ALUMINIUM": {"positive": 20, "negative": 55, "neutral": 25},
+                "TRADE": {"positive": 30, "negative": 40, "neutral": 30},
             },
         },
     },
     {
         "id": "copper_market_dip",
-        "name": "Copper Market Dip",
+        "name": "Copper & Aluminium Market Dip",
         "description": (
-            "LME Copper drops 5.4% in 24h with negative market sentiment. "
-            "Tests commodity dip alerts and whether the system flags a bulk buying opportunity."
+            "LME Copper drops 5.4% and Aluminium drops 2.8% in landed-cost terms over 24h. "
+            "Tests whether both commodity buy-window alerts fire simultaneously, signalling a "
+            "broad metals correction and a joint procurement opportunity."
         ),
         "conditions": {
-            "usd_lkr": 308.5,
-            "copper_change_pct": -5.4,
-            "aluminium_change_pct": -1.2,
+            "usd_lkr": 319.0,
+            "copper_change_pct": -5.4,        # Rule 1 SHOULD fire
+            "aluminium_change_pct": -2.8,     # Rule 2 SHOULD fire
             "high_risk_locations": [],
             "sentiment_by_topic": {
                 "COPPER": {"positive": 10, "negative": 72, "neutral": 18},
+                "ALUMINIUM": {"positive": 12, "negative": 65, "neutral": 23},
                 "TRADE": {"positive": 20, "negative": 50, "neutral": 30},
             },
         },
@@ -64,14 +77,15 @@ UAT_SCENARIOS: list[dict] = [
         "id": "monsoon_disruption",
         "name": "Monsoon Supply Chain Disruption",
         "description": (
-            "Multiple Western Province districts at HIGH flood risk during monsoon. "
-            "Tests weather alerts and whether the logistics warning system activates."
+            "Multiple Western Province districts reach HIGH flood risk during peak monsoon. "
+            "Tests the weather-based logistics alert and validates that procurement is warned "
+            "before port and road disruptions impact inbound shipments."
         ),
         "conditions": {
-            "usd_lkr": 304.0,
+            "usd_lkr": 326.5,
             "copper_change_pct": 0.5,
             "aluminium_change_pct": 0.3,
-            "high_risk_locations": ["Colombo", "Gampaha", "Kalutara"],
+            "high_risk_locations": ["Colombo", "Gampaha", "Kalutara"],   # Rule 3 SHOULD fire
             "sentiment_by_topic": {
                 "LOGISTICS": {"positive": 5, "negative": 78, "neutral": 17},
                 "FX": {"positive": 35, "negative": 35, "neutral": 30},
@@ -79,40 +93,43 @@ UAT_SCENARIOS: list[dict] = [
         },
     },
     {
-        "id": "geopolitical_alert",
-        "name": "Geopolitical Supply Risk",
+        "id": "fx_adverse_rate",
+        "name": "FX Adverse Rate — LKR Under Pressure",
         "description": (
-            "68% negative copper market news — simulates trade disruption in supplier countries. "
-            "Tests sentiment-based alerts for early geopolitical warning."
+            "USD/LKR rises to 335, reflecting significant LKR weakening that inflates the "
+            "rupee cost of all imports. Tests whether the FX adverse-rate alert fires and "
+            "procurement is warned to hedge or defer non-urgent orders."
         ),
         "conditions": {
-            "usd_lkr": 313.0,
-            "copper_change_pct": 2.2,
-            "aluminium_change_pct": 1.7,
+            "usd_lkr": 335.0,                 # > 330 threshold — Rule 4 SHOULD fire
+            "copper_change_pct": 1.2,
+            "aluminium_change_pct": 0.8,
             "high_risk_locations": [],
             "sentiment_by_topic": {
-                "COPPER": {"positive": 12, "negative": 68, "neutral": 20},
-                "TRADE": {"positive": 8, "negative": 65, "neutral": 27},
-                "LOGISTICS": {"positive": 15, "negative": 55, "neutral": 30},
+                "FX": {"positive": 8, "negative": 70, "neutral": 22},
+                "TRADE": {"positive": 15, "negative": 58, "neutral": 27},
             },
         },
     },
     {
-        "id": "combined_risk_event",
-        "name": "Combined Risk Event",
+        "id": "combined_peak_stress",
+        "name": "Combined Peak Stress Event",
         "description": (
-            "FX pressure (USD/LKR at 326), active flood risk, and strongly negative copper sentiment — "
-            "all simultaneously. Tests whether all alert categories activate under peak stress."
+            "All four alert categories activate simultaneously: USD/LKR at 338 (FX adverse), "
+            "copper down 2.8% and aluminium down 3.2% in landed-cost terms (buy windows), "
+            "and HIGH flood risk at three Western Province locations. Tests full system "
+            "response and validates that no alert is missed under peak procurement stress."
         ),
         "conditions": {
-            "usd_lkr": 326.0,
-            "copper_change_pct": 3.8,
-            "aluminium_change_pct": 2.9,
-            "high_risk_locations": ["Colombo", "Gampaha", "Ratnapura"],
+            "usd_lkr": 338.0,                 # Rule 4 SHOULD fire
+            "copper_change_pct": -2.8,        # Rule 1 SHOULD fire
+            "aluminium_change_pct": -3.2,     # Rule 2 SHOULD fire
+            "high_risk_locations": ["Colombo", "Gampaha", "Ratnapura"],   # Rule 3 SHOULD fire
             "sentiment_by_topic": {
-                "COPPER": {"positive": 8, "negative": 75, "neutral": 17},
+                "COPPER": {"positive": 8, "negative": 72, "neutral": 20},
+                "ALUMINIUM": {"positive": 10, "negative": 68, "neutral": 22},
                 "FX": {"positive": 5, "negative": 80, "neutral": 15},
-                "TRADE": {"positive": 10, "negative": 70, "neutral": 20},
+                "LOGISTICS": {"positive": 12, "negative": 65, "neutral": 23},
             },
         },
     },
@@ -138,8 +155,12 @@ def _compare(value: float, comparison: str, threshold: float) -> bool:
 def _evaluate_rule_against_snapshot(
     rule: AlertRule,
     usd_lkr: float | None,
-    copper_change_pct: float | None,
-    aluminium_change_pct: float | None,
+    # For UAT scenarios: copper/aluminium landed-cost change % (FX assumed constant,
+    # so this equals the USD price change %).
+    # For historical backtest: pre-computed (price_today*fx_today - price_prev*fx_prev)
+    # / (price_prev*fx_prev) * 100.
+    copper_landed_change_pct: float | None,
+    aluminium_landed_change_pct: float | None,
     high_risk_locations: list[str],
     sentiment_by_topic: dict[str, dict[str, int]],
 ) -> str | None:
@@ -148,18 +169,16 @@ def _evaluate_rule_against_snapshot(
         if rule.threshold_value is not None and _compare(usd_lkr, rule.comparison, rule.threshold_value):
             return f"USD/LKR is {usd_lkr:.2f} — {rule.comparison} threshold {rule.threshold_value}"
 
-    elif rule.metric == "copper_price" and copper_change_pct is not None:
-        if rule.threshold_value is not None and _compare(copper_change_pct, rule.comparison, rule.threshold_value):
-            return f"Copper 24h change: {copper_change_pct:.2f}% — {rule.comparison} threshold {rule.threshold_value}%"
+    elif rule.metric == "copper_price" and copper_landed_change_pct is not None:
+        if rule.threshold_value is not None and _compare(copper_landed_change_pct, rule.comparison, rule.threshold_value):
+            return f"Copper landed cost 24h change: {copper_landed_change_pct:+.2f}% — {rule.comparison} threshold {rule.threshold_value}%"
 
-    elif rule.metric == "aluminium_price" and aluminium_change_pct is not None:
-        if rule.threshold_value is not None and _compare(aluminium_change_pct, rule.comparison, rule.threshold_value):
-            return f"Aluminium 24h change: {aluminium_change_pct:.2f}% — {rule.comparison} threshold {rule.threshold_value}%"
+    elif rule.metric == "aluminium_price" and aluminium_landed_change_pct is not None:
+        if rule.threshold_value is not None and _compare(aluminium_landed_change_pct, rule.comparison, rule.threshold_value):
+            return f"Aluminium landed cost 24h change: {aluminium_landed_change_pct:+.2f}% — {rule.comparison} threshold {rule.threshold_value}%"
 
     elif rule.metric == "flood_risk" and rule.threshold_text and high_risk_locations:
-        matching = [loc for loc in high_risk_locations]
-        if matching:
-            return f"Flood risk {rule.threshold_text} in: {', '.join(matching)}"
+        return f"Flood risk {rule.threshold_text} in: {', '.join(high_risk_locations)}"
 
     elif rule.metric == "news_sentiment" and rule.threshold_text:
         topic_part, *pct_part = rule.threshold_text.split(":")
@@ -258,13 +277,30 @@ def run_backtest(db: Session, request: BacktestRequest) -> BacktestResult:
             if aluminium_today and aluminium_prev:
                 break
 
-        copper_change_pct = None
-        if copper_today and copper_prev and copper_prev.price_usd > 0:
-            copper_change_pct = (copper_today.price_usd - copper_prev.price_usd) / copper_prev.price_usd * 100
+        # FX for the previous day (most recent rate before day_start)
+        fx_prev_day = None
+        for rate in reversed(all_fx):
+            if rate.timestamp <= prev_day_end:
+                fx_prev_day = rate
+                break
+        fx_today_rate = fx_for_day.usd_lkr if fx_for_day else None
+        fx_prev_rate = fx_prev_day.usd_lkr if fx_prev_day else fx_today_rate
 
-        aluminium_change_pct = None
-        if aluminium_today and aluminium_prev and aluminium_prev.price_usd > 0:
-            aluminium_change_pct = (aluminium_today.price_usd - aluminium_prev.price_usd) / aluminium_prev.price_usd * 100
+        # Landed cost change % = (price_today * fx_today - price_prev * fx_prev)
+        #                        / (price_prev * fx_prev) * 100
+        copper_landed_change_pct = None
+        if copper_today and copper_prev and fx_today_rate and fx_prev_rate:
+            landed_now = copper_today.price_usd * fx_today_rate
+            landed_ref = copper_prev.price_usd * fx_prev_rate
+            if landed_ref > 0:
+                copper_landed_change_pct = (landed_now - landed_ref) / landed_ref * 100
+
+        aluminium_landed_change_pct = None
+        if aluminium_today and aluminium_prev and fx_today_rate and fx_prev_rate:
+            landed_now = aluminium_today.price_usd * fx_today_rate
+            landed_ref = aluminium_prev.price_usd * fx_prev_rate
+            if landed_ref > 0:
+                aluminium_landed_change_pct = (landed_now - landed_ref) / landed_ref * 100
 
         # Latest weather per location on or before day_end
         weather_by_location: dict[str, WeatherReading] = {}
@@ -293,8 +329,8 @@ def run_backtest(db: Session, request: BacktestRequest) -> BacktestResult:
             msg = _evaluate_rule_against_snapshot(
                 rule,
                 usd_lkr=fx_for_day.usd_lkr if fx_for_day else None,
-                copper_change_pct=copper_change_pct,
-                aluminium_change_pct=aluminium_change_pct,
+                copper_landed_change_pct=copper_landed_change_pct,
+                aluminium_landed_change_pct=aluminium_landed_change_pct,
                 high_risk_locations=high_risk_locations,
                 sentiment_by_topic=sentiment_by_topic,
             )
@@ -356,8 +392,8 @@ def run_scenario(db: Session, conditions: ScenarioConditions) -> ScenarioRunResu
         msg = _evaluate_rule_against_snapshot(
             rule,
             usd_lkr=conditions.usd_lkr,
-            copper_change_pct=conditions.copper_change_pct,
-            aluminium_change_pct=conditions.aluminium_change_pct,
+            copper_landed_change_pct=conditions.copper_change_pct,
+            aluminium_landed_change_pct=conditions.aluminium_change_pct,
             high_risk_locations=conditions.high_risk_locations,
             sentiment_by_topic=sentiment_raw,
         )

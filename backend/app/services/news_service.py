@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,7 @@ def get_recent(
     topic: str | None = None,
     limit: int = 50,
 ) -> list[NewsItemOut]:
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
     q = db.query(NewsItem).filter(NewsItem.published_at >= since)
 
     if topic and topic.upper() in VALID_TOPICS:

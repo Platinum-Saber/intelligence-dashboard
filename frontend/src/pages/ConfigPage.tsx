@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Trash2, Zap, Brain, Activity, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 import { getDataSourceAudit, type DataSourceStatus } from "@/api/backtest"
+import { fetchAppSettings } from "@/api/settings"
 
 const RULE_TYPES = ["FX_THRESHOLD", "COMMODITY_DIP", "WEATHER_RISK", "SENTIMENT_NEGATIVE"] as const
 const METRICS: Record<string, string[]> = {
@@ -279,6 +280,22 @@ function AlertRulesTab() {
 }
 
 function AppSettingsTab() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: fetchAppSettings,
+    staleTime: 30_000,
+  })
+
+  const envRows = data
+    ? [
+        { key: "DEBUG",             value: String(data.debug),             desc: "Debug mode — uses generated data, skips live API calls" },
+        { key: "FX_API_KEY",        value: data.fx_api_key_configured ? "••••••••" : "not set", desc: "exchangerate-api.com key for live USD/LKR rates" },
+        { key: "NEWSAPI_KEY",       value: data.newsapi_key_configured ? "••••••••" : "not set", desc: "newsapi.org key for live news feed" },
+        { key: "SENTIMENT_ENABLED", value: String(data.sentiment_enabled),  desc: "Enable/disable FinBERT sentiment scoring" },
+        { key: "DATABASE_URL",      value: data.database_url,               desc: "Active database connection (credentials stripped)" },
+      ]
+    : []
+
   return (
     <Card>
       <CardHeader>
@@ -286,41 +303,48 @@ function AppSettingsTab() {
         <CardDescription>Runtime configuration — edit .env on the server to persist changes</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Data Collection</h3>
-          <Separator />
-          {[
-            { key: "DEBUG", value: "true", desc: "Debug mode — uses generated data, skips live API calls" },
-            { key: "FX_API_KEY", value: "••••••••", desc: "exchangerate-api.com key for live USD/LKR rates" },
-            { key: "NEWSAPI_KEY", value: "••••••••", desc: "newsapi.org key for live news feed" },
-            { key: "SENTIMENT_ENABLED", value: "true", desc: "Enable/disable FinBERT sentiment scoring" },
-          ].map(({ key, value, desc }) => (
-            <div key={key} className="flex items-start justify-between gap-4 py-1.5">
-              <div>
-                <p className="text-sm font-medium font-mono">{key}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-              </div>
-              <Badge variant="secondary" className="font-mono shrink-0">{value}</Badge>
-            </div>
-          ))}
-        </div>
+        {isLoading && <p className="text-sm text-muted-foreground">Loading settings…</p>}
+        {isError  && <p className="text-sm text-destructive">Could not load settings from backend.</p>}
 
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Scheduler</h3>
-          <Separator />
-          {[
-            { key: "FX + Alert check", value: "Every 15 min" },
-            { key: "Commodity prices", value: "Every 1 hour" },
-            { key: "Weather (Open-Meteo)", value: "Every 1 hour" },
-            { key: "News collection", value: "Every 1 hour" },
-            { key: "Sentiment scoring", value: "Every 2 hours" },
-          ].map(({ key, value }) => (
-            <div key={key} className="flex items-center justify-between py-1">
-              <span className="text-sm text-muted-foreground">{key}</span>
-              <span className="text-sm font-medium">{value}</span>
+        {data && (
+          <>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Data Collection</h3>
+              <Separator />
+              {envRows.map(({ key, value, desc }) => (
+                <div key={key} className="flex items-start justify-between gap-4 py-1.5">
+                  <div>
+                    <p className="text-sm font-medium font-mono">{key}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={`font-mono shrink-0 ${
+                      value === "false" || value === "not set"
+                        ? "text-destructive"
+                        : value === "true"
+                        ? "text-[var(--c-green)]"
+                        : ""
+                    }`}
+                  >
+                    {value}
+                  </Badge>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Scheduler</h3>
+              <Separator />
+              {data.scheduler_jobs.map((job) => (
+                <div key={job.id} className="flex items-center justify-between py-1">
+                  <span className="text-sm text-muted-foreground">{job.name}</span>
+                  <span className="text-sm font-medium">{job.interval}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
           Settings are read from <code className="text-xs bg-muted px-1 py-0.5 rounded">backend/.env</code> at startup.

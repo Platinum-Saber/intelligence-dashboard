@@ -28,7 +28,9 @@ def fetch_supply_chain_news() -> list[dict]:
         logger.debug("[news_collector] NEWSAPI_KEY not set — skipping live fetch")
         return []
 
-    since = (datetime.now(timezone.utc) - timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_utc = datetime.now(timezone.utc)
+    fetched_at = now_utc.replace(tzinfo=None)
+    since = (now_utc - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
     results: list[dict] = []
 
     for query, topic in _QUERIES:
@@ -53,6 +55,7 @@ def fetch_supply_chain_news() -> list[dict]:
                     continue
                 results.append({
                     "published_at": datetime.fromisoformat(pub.replace("Z", "+00:00")).replace(tzinfo=None),
+                    "fetched_at": fetched_at,
                     "headline": (a.get("title") or "")[:500],
                     "summary": (a.get("description") or "")[:1000],
                     "url": a.get("url"),
