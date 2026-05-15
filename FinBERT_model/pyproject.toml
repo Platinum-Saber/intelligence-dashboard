@@ -1,0 +1,21 @@
+[project]
+name = "finbert-training"
+version = "0.1.0"
+description = "FinBERT buyer-perspective fine-tuning pipeline for ACL Procurement Intelligence Dashboard"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "anthropic>=0.34.0",
+    "pandas>=2.0.0",
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }

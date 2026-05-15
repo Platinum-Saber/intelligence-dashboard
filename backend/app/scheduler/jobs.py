@@ -81,7 +81,7 @@ def _collect_weather() -> None:
 
 
 def _collect_news() -> None:
-    if not settings.newsapi_key:
+    if not settings.freenewsapi_key:
         return
     from app.collectors.news_collector import fetch_supply_chain_news
     from app.database import SessionLocal

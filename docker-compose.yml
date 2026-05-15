@@ -27,8 +27,11 @@ services:
       - DATABASE_URL=postgresql://acl:changeme@db:5432/procurement_intel
       - FRONTEND_URL=http://localhost:5173
       - FX_API_KEY=bdb3f00ac03005cc3737bcf6
-      - NEWSAPI_KEY=7d8c7ce118a44be08c6ca145874e363f
+      - FREENEWSAPI_KEY=2b24eb9f94889ff43ce875c483ce22312d5748bf4289aa2727b35125d55032a5
       - SENTIMENT_ENABLED=true
+      - FINBERT_MODEL_PATH=/app/models/buyer_finbert
+    volumes:
+      - ./FinBERT_model/model/buyer_finbert:/app/models/buyer_finbert:ro
     depends_on:
       db:
         condition: service_healthy
