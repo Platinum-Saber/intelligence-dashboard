@@ -96,7 +96,7 @@ def app_settings():
     return {
         "debug": settings.debug,
         "fx_api_key_configured": bool(settings.fx_api_key),
-        "newsapi_key_configured": bool(settings.newsapi_key),
+        "freenewsapi_key_configured": bool(settings.freenewsapi_key),
         "sentiment_enabled": settings.sentiment_enabled,
         "database_url": settings.database_url.split("@")[-1] if "@" in settings.database_url else settings.database_url,
         "scheduler_jobs": jobs_out,

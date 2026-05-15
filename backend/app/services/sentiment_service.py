@@ -34,10 +34,10 @@ def _get_pipeline() -> "Pipeline | None":
     try:
         if pipeline is None:
             raise ImportError("transformers not available")
-        logger.info("[sentiment] Loading FinBERT model (first run: downloads ~400 MB)…")
+        logger.info(f"[sentiment] Loading FinBERT model: {settings.finbert_model_path}")
         _pipeline = pipeline(
             "sentiment-analysis",
-            model="ProsusAI/finbert",
+            model=settings.finbert_model_path,
             device=-1,          # CPU
             truncation=True,
             max_length=512,
@@ -92,8 +92,8 @@ def score_unscored_news(db: Session, batch_size: int = 50) -> int:
 
     for row, result in zip(rows, results):
         raw = result["label"].upper()
-        # Store the buyer-perspective label directly so the DB is always procurement-correct.
-        row.sentiment = _buyer_key(row.topic or "", raw.lower()).upper()
+        # Fine-tuned buyer_finbert already outputs buyer-correct labels — no inversion needed.
+        row.sentiment = raw
 
     db.commit()
     logger.info(f"[sentiment] Scored {len(rows)} news items.")

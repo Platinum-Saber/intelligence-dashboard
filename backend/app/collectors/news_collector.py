@@ -1,14 +1,14 @@
 """
-Supply-chain news collector — NewsAPI.org (free tier: 100 req/day).
-Requires NEWSAPI_KEY in .env.
+Supply-chain news collector — freenewsapi.io (free tier: 5,000 req/day, no pub delay).
+Requires FREENEWSAPI_KEY in .env.
 
 Rate-limit budget:
-  Free tier: 100 req/day, 24-hour article delay, pageSize max 100.
-  We send 2 broad queries per collection cycle (every 3h = 8 cycles/day = 16 req/day).
-  Topic classification is done by reclassify_topic() on the fetched content,
-  not by query-per-topic — this is why Sprint 5.1 content classification exists.
+  Free tier: 5,000 req/day, 2 req/sec, pageSize max 100.
+  5 queries per collection cycle (every 3h = 8 cycles/day = 40 req/day).
+  Topic classification is done by reclassify_topic() on the fetched content.
 """
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -17,17 +17,27 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_BASE = "https://newsapi.org/v2/everything"
+_BASE = "https://api.freenewsapi.io/v1/news"
+_REQUEST_DELAY = 0.6  # seconds between requests — stays under 2 req/sec
 
-# 2 broad queries cover all 5 dashboard topics within the 100 req/day budget.
-# pageSize=100 (API max) maximises articles per request.
-# 72h lookback accounts for the free-tier 24-hour article publication delay.
+# One keyword per query; broad terms maximise article coverage.
+# reclassify_topic() assigns the final topic; _QUERY_HINTS is the fallback
+# when the content classifier can't find 2 keyword hits (common for short incipit).
 _QUERIES: list[str] = [
-    # Commodity + metals signals
-    "copper OR aluminium OR aluminum OR \"LME\" OR \"base metals\" OR \"metal prices\"",
-    # FX + trade + Sri Lanka logistics signals
-    "rupee OR \"LKR\" OR \"supply chain\" OR \"Sri Lanka\" OR shipping OR logistics OR tariff OR \"trade war\"",
+    "copper",
+    "aluminium",
+    "LME",
+    "rupee",
+    "logistics",
 ]
+
+_QUERY_HINTS: dict[str, str | None] = {
+    "copper":    "COPPER",
+    "aluminium": "ALUMINIUM",
+    "LME":       None,        # covers both metals — let content classifier decide
+    "rupee":     "FX",
+    "logistics": "LOGISTICS",
+}
 
 # Sprint 5.1 — content-based topic classification.
 # An article is assigned the topic with the highest keyword score (min 2 hits).
@@ -54,18 +64,17 @@ def reclassify_topic(headline: str, summary: str | None) -> str | None:
 
 
 def fetch_supply_chain_news() -> list[dict]:
-    if not settings.newsapi_key:
-        logger.debug("[news_collector] NEWSAPI_KEY not set — skipping live fetch")
+    if not settings.freenewsapi_key:
+        logger.debug("[news_collector] FREENEWSAPI_KEY not set — skipping live fetch")
         return []
 
     now_utc = datetime.now(timezone.utc)
     fetched_at = now_utc.replace(tzinfo=None)
-    # 72h lookback: free tier has a 24-hour publication delay, so articles
-    # from the last 24h are not yet available. Going back 72h ensures we
-    # reliably catch the past 2 days of released articles.
-    since = (now_utc - timedelta(hours=72)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # 24h lookback — freenewsapi has no publication delay (unlike NewsAPI free tier).
+    since = (now_utc - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    seen_urls: set[str] = set()
+    headers = {"x-api-key": settings.freenewsapi_key}
+    seen_uuids: set[str] = set()
     results: list[dict] = []
 
     for query in _QUERIES:
@@ -73,45 +82,53 @@ def fetch_supply_chain_news() -> list[dict]:
             resp = httpx.get(
                 _BASE,
                 params={
-                    "q":        query,
+                    "in_title": query,
+                    "language": "en",
+                    "limit":    100,
                     "from":     since,
                     "sortBy":   "publishedAt",
-                    "language": "en",
-                    "pageSize": 100,        # API maximum — maximise articles per request
-                    "apiKey":   settings.newsapi_key,
                 },
+                headers=headers,
                 timeout=15,
             )
             resp.raise_for_status()
-            articles = resp.json().get("articles", [])
+            articles = resp.json().get("data", [])
 
             for a in articles:
-                pub = a.get("publishedAt")
-                url = a.get("url")
-                if not pub or not url or url in seen_urls:
+                uuid = a.get("uuid", "")
+                if not uuid or uuid in seen_uuids:
                     continue
-                seen_urls.add(url)
+                seen_uuids.add(uuid)
 
                 headline = (a.get("title") or "")[:500]
-                summary  = (a.get("description") or "")[:1000]
-                topic    = reclassify_topic(headline, summary)  # content-based; None if no match
+                summary  = (a.get("incipit") or "")[:1000]
+                topic    = reclassify_topic(headline, summary) or _QUERY_HINTS.get(query)
+
+                pub_str = a.get("published_at", "")
+                try:
+                    published_at = datetime.fromisoformat(
+                        pub_str.replace("Z", "+00:00")
+                    ).replace(tzinfo=None)
+                except (ValueError, AttributeError):
+                    published_at = fetched_at
 
                 results.append({
-                    "published_at":   datetime.fromisoformat(pub.replace("Z", "+00:00")).replace(tzinfo=None),
-                    "fetched_at":     fetched_at,
-                    "headline":       headline,
-                    "summary":        summary,
-                    "url":            url,
-                    "source":         a.get("source", {}).get("name", "newsapi"),
-                    "topic":          topic,   # None articles are unclassified until /reclassify-all
+                    "published_at":    published_at,
+                    "fetched_at":      fetched_at,
+                    "headline":        headline,
+                    "summary":         summary,
+                    "url":             a.get("original_url", ""),
+                    "source":          a.get("publisher") or "freenewsapi",
+                    "topic":           topic,
                     "relevance_score": 0.8,
-                    "sentiment":      None,
+                    "sentiment":       None,
                 })
 
-            logger.info(f"[news_collector] Query fetched {len(articles)} articles (unique so far: {len(results)})")
+            logger.info(f"[news_collector] '{query}' → {len(articles)} articles (unique so far: {len(results)})")
+            time.sleep(_REQUEST_DELAY)
 
         except Exception as exc:
-            logger.warning(f"[news_collector] Query failed: {exc}")
+            logger.warning(f"[news_collector] Query '{query}' failed: {exc}")
 
     logger.info(f"[news_collector] Total collected: {len(results)} unique articles")
     return results

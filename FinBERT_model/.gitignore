@@ -1,0 +1,16 @@
+# Trained model weights (large binary — mount as Docker volume instead)
+model/
+
+# Generated and accumulated data — never commit
+data/raw/
+data/labeled/
+data/training_dataset.csv
+
+# Python environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# API keys
+.env

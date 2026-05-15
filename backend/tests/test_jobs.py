@@ -354,11 +354,11 @@ class TestCollectWeather:
 class TestCollectNews:
     """Tests for _collect_news() — NewsAPI article ingestion."""
 
-    def test_early_return_no_newsapi_key(self):
-        """newsapi_key is empty → fetch never called."""
+    def test_early_return_no_freenewsapi_key(self):
+        """freenewsapi_key is empty → fetch never called."""
         with patch("app.scheduler.jobs.settings") as mock_cfg, \
              patch("app.collectors.news_collector.fetch_supply_chain_news") as mock_fetch:
-            mock_cfg.newsapi_key = ""
+            mock_cfg.freefreenewsapi_key = ""
 
             from app.scheduler.jobs import _collect_news
             _collect_news()
@@ -366,12 +366,12 @@ class TestCollectNews:
             mock_fetch.assert_not_called()
 
     def test_early_return_empty_articles(self):
-        """newsapi_key set but fetch returns [] → bulk_insert never called."""
+        """freenewsapi_key set but fetch returns [] → bulk_insert never called."""
         db = _make_db()
         with patch("app.scheduler.jobs.settings") as mock_cfg, \
              patch("app.collectors.news_collector.fetch_supply_chain_news", return_value=[]), \
              patch("app.database.SessionLocal", _db_factory(db)):
-            mock_cfg.newsapi_key = "abc123"
+            mock_cfg.freefreenewsapi_key = "abc123"
 
             from app.scheduler.jobs import _collect_news
             _collect_news()
@@ -379,14 +379,14 @@ class TestCollectNews:
             db.bulk_insert_mappings.assert_not_called()
 
     def test_articles_bulk_inserted_and_committed(self):
-        """newsapi_key set, articles returned → bulk inserted and committed."""
+        """freenewsapi_key set, articles returned → bulk inserted and committed."""
         db = _make_db()
         articles = [{"headline": "Trade News", "topic": "TRADE"}] * 5
         with patch("app.scheduler.jobs.settings") as mock_cfg, \
              patch("app.collectors.news_collector.fetch_supply_chain_news", return_value=articles), \
              patch("app.database.SessionLocal", _db_factory(db)), \
              patch("app.models.news.NewsItem") as MockNI:
-            mock_cfg.newsapi_key = "abc123"
+            mock_cfg.freefreenewsapi_key = "abc123"
 
             from app.scheduler.jobs import _collect_news
             _collect_news()
@@ -404,7 +404,7 @@ class TestCollectNews:
              patch("app.collectors.news_collector.fetch_supply_chain_news", return_value=articles), \
              patch("app.database.SessionLocal", _db_factory(db)), \
              patch("app.models.news.NewsItem"):
-            mock_cfg.newsapi_key = "key"
+            mock_cfg.freefreenewsapi_key = "key"
 
             with caplog.at_level(logging.INFO, logger="app.scheduler.jobs"):
                 from app.scheduler.jobs import _collect_news
@@ -421,7 +421,7 @@ class TestCollectNews:
              patch("app.collectors.news_collector.fetch_supply_chain_news", return_value=articles), \
              patch("app.database.SessionLocal", _db_factory(db)), \
              patch("app.models.news.NewsItem"):
-            mock_cfg.newsapi_key = "key"
+            mock_cfg.freefreenewsapi_key = "key"
 
             from app.scheduler.jobs import _collect_news
             with pytest.raises(RuntimeError):
