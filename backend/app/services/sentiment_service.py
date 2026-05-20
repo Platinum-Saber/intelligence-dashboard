@@ -13,6 +13,11 @@ from app.config import settings
 if TYPE_CHECKING:
     from transformers import Pipeline
 
+try:
+    from transformers import pipeline
+except ImportError:
+    pipeline = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 _pipeline: "Pipeline | None" = None
@@ -27,11 +32,12 @@ def _get_pipeline() -> "Pipeline | None":
         return _pipeline
     _load_attempted = True
     try:
-        from transformers import pipeline as hf_pipeline
-        logger.info("[sentiment] Loading FinBERT model (first run: downloads ~400 MB)…")
-        _pipeline = hf_pipeline(
+        if pipeline is None:
+            raise ImportError("transformers not available")
+        logger.info(f"[sentiment] Loading FinBERT model: {settings.finbert_model_path}")
+        _pipeline = pipeline(
             "sentiment-analysis",
-            model="ProsusAI/finbert",
+            model=settings.finbert_model_path,
             device=-1,          # CPU
             truncation=True,
             max_length=512,
@@ -76,7 +82,8 @@ def score_unscored_news(db: Session, batch_size: int = 50) -> int:
     if not rows:
         return 0
 
-    texts = [r.headline for r in rows]
+    # Sprint 5.1: score on headline + summary (up to 512 chars) for richer signal
+    texts = [f"{r.headline}. {r.summary or ''}"[:512] for r in rows]
     try:
         results = pipe(texts, truncation=True, max_length=512)
     except Exception as exc:
@@ -84,20 +91,60 @@ def score_unscored_news(db: Session, batch_size: int = 50) -> int:
         return 0
 
     for row, result in zip(rows, results):
-        row.sentiment = result["label"].upper()
+        raw = result["label"].upper()
+        # Fine-tuned buyer_finbert already outputs buyer-correct labels — no inversion needed.
+        row.sentiment = raw
 
     db.commit()
     logger.info(f"[sentiment] Scored {len(rows)} news items.")
     return len(rows)
 
 
+def reclassify_all_topics(db: Session) -> int:
+    """Sprint 5.1: backfill topic reclassification for all existing news items. Returns count updated."""
+    from app.models.news import NewsItem
+    from app.collectors.news_collector import reclassify_topic
+
+    rows = db.query(NewsItem).all()
+    updated = 0
+    for row in rows:
+        classified = reclassify_topic(row.headline, row.summary)
+        if classified and classified != row.topic:
+            row.topic = classified
+            updated += 1
+    if updated:
+        db.commit()
+    logger.info(f"[sentiment] Reclassified {updated}/{len(rows)} news items.")
+    return updated
+
+
+# Topics where FinBERT market-positive = procurement-negative.
+# "Copper near record high" is good for traders but bad for buyers paying more.
+_BUYER_INVERT_TOPICS = {"COPPER", "ALUMINIUM"}
+
+
+def _buyer_key(topic: str, raw_label: str) -> str:
+    """Map raw FinBERT label to the buyer-perspective label for a given topic."""
+    if topic in _BUYER_INVERT_TOPICS:
+        if raw_label == "positive":
+            return "negative"
+        if raw_label == "negative":
+            return "positive"
+    return raw_label
+
+
 def get_sentiment_summary(db: Session, days: int = 7) -> list[dict]:
-    """Aggregated sentiment counts per topic for the past N days."""
-    from datetime import datetime, timedelta
+    """Aggregated sentiment counts per topic for the past N days.
+
+    Counts are expressed from the procurement-buyer perspective:
+    for COPPER and ALUMINIUM, FinBERT POSITIVE is inverted to NEGATIVE
+    because rising commodity prices are a cost increase for buyers.
+    """
+    from datetime import datetime, timedelta, UTC
     from app.models.news import NewsItem
     from sqlalchemy import func
 
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
 
     rows = (
         db.query(

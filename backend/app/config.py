@@ -10,10 +10,14 @@ class Settings(BaseSettings):
 
     # Phase 2: live data feed keys
     fx_api_key: str = ""           # exchangerate-api.com
-    newsapi_key: str = ""          # newsapi.org
+    freenewsapi_key: str = ""      # freenewsapi.io (5,000 req/day, no pub delay)
 
     # Phase 2: NLP
     sentiment_enabled: bool = True  # set False to skip FinBERT loading
+    finbert_model_path: str = "ProsusAI/finbert"  # override with local buyer_finbert path
+
+    # Alert quality
+    sentiment_min_articles: int = 5  # minimum article count before sentiment alert fires
 
     # SMTP alert notifications
     smtp_host: str = "smtp.gmail.com"

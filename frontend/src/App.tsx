@@ -30,7 +30,7 @@ function AppShell() {
           {/* Page title — derived from route */}
           <PageTitle />
           <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-[var(--c-gold)] border border-[var(--c-gold)]/30 rounded px-2 py-1 bg-[var(--c-gold)]/5">
-            Phase 3 · Debug Mode
+            Phase 4 · Debug Mode
           </span>
         </header>
 

@@ -14,6 +14,9 @@
 | 0.3 | 2026-05-13 | Phase 2 complete; delivery plan and handover notes updated |
 | 0.4 | 2026-05-13 | UI refactor complete; phase checkboxes and tech stack table updated |
 | 0.5 | 2026-05-13 | Phase 3 complete: backtesting, UAT scenarios, data source audit, user guide, deployment runbook |
+| 0.6 | 2026-05-14 | Phase 4 and Phase 5 planned — scoped from future_improvements.md gap analysis; see phase4_phase5_plan.md |
+| 0.7 | 2026-05-14 | Phase 4 fully implemented — alert reliability bugs fixed, FX & climate enhancements delivered, UAT scenarios extended to 6 covering all 7 rules, UI bugs resolved |
+| 0.8 | 2026-05-14 | Phase 5 fully implemented — news reclassification, CBSL chart overlay, SLFRS S2 climate export, composite alert builder |
 
 ---
 
@@ -221,6 +224,35 @@ These items were considered and deliberately excluded or de-scoped:
 - [x] Deployment runbook (`docs/deployment_runbook.md`) — covers dev, Docker, VPS/EC2, HTTPS, security checklist
 - [ ] (Optional) ERP integration scoping meeting with ACL IT team — deferred to Phase 4
 
+### Phase 4 — Alert Reliability & Enhanced Intelligence ✅ Complete
+**Goal:** Close reliability bugs in the alert engine, complete FX alerting surface, add missing climate risk signals. Every formally documented AR risk with available data is covered by end of Phase 4.
+**Full plan:** `docs/phase4_phase5_plan.md`
+
+- [x] **Sprint 4.1 — Bug Fixes**
+  - [x] Item 10: Sentiment alert minimum article count guard (`alert_service.py`, `backtest_service.py`) — configurable via `SENTIMENT_MIN_ARTICLES` env var (default 5)
+  - [x] Item 11: Per-rule email recipients bug fix (`alert_service.py` `_try_notify`) — reads `rule.email_recipients`, falls back to `alert_from_email`
+- [x] **Sprint 4.2 — FX Alert Enhancements**
+  - [x] Item 7: FX percentage change alert (`usd_lkr_change_pct` metric) — uses `fx_service.get_summary()` already available
+  - [x] Item 8: FX multi-day sustained pressure alert + `trend_window_hours` schema migration — `fx_service.rate_sustained_above()`
+- [x] **Sprint 4.3 — Climate Alert Enhancements**
+  - [x] Item 1: Drought & water stress detection — `drought_risk` column on `WeatherReading`, `get_drought_risk()` + `update_drought_risk_latest()` in `weather_service.py`, scheduler stamps on each collection
+  - [x] Item 2: Heatwave alert rule — `consecutive_hot_days()` in `weather_service.py`, fires when ≥3 consecutive days above threshold
+  - [x] Item 3: Multi-day weather trend alerts — `location_elevated_for_hours()` in `weather_service.py`, uses shared `trend_window_hours` field
+  - [x] Item 6: Seasonal / monsoon baseline — `utils/seasonal_baseline.py`, seasonal context appended to flood/weather alert messages, `SeasonalBadge` in `AlertsPage`
+
+### Phase 5 — Advanced Intelligence & Compliance Layer ✅ Complete
+**Goal:** Cross-signal composite alerts, CBSL rate chart context, improved news topic accuracy, and SLFRS S2 compliance export. Requires Phase 4 complete.
+**Full plan:** `docs/phase4_phase5_plan.md`
+
+- [x] **Sprint 5.1 — News Intelligence Upgrade** (~1 day)
+  - [x] Item 12: Content-based news topic classification (`TOPIC_KEYWORDS` + `reclassify_topic()` in `news_collector.py`); FinBERT scoring on headline + summary; `POST /api/v1/news/reclassify-all` backfill endpoint
+- [x] **Sprint 5.2 — CBSL Rate Overlay** (~1 day)
+  - [x] Item 9: `CBSLRate` model + `GET/POST/PUT/DELETE /api/v1/fx/cbsl/` router; dashed gold step-function line on FX chart; CBSL Rates tab in Configurations page
+- [x] **Sprint 5.3 — SLFRS S2 Climate Export** (~1.5 days)
+  - [x] Item 4: `climate_report_service.py` aggregations (flood days, drought days, temp extremes, port disruptions); `GET /api/v1/climate/report` + CSV streaming endpoint; Climate Report tab in Config
+- [x] **Sprint 5.4 — Cross-Signal Composite Alerts** (~2 days)
+  - [x] Item 5: `composite_condition TEXT` on `AlertRule`; `_eval_single_metric()` + `evaluate_composite()` in `alert_service.py`; dynamic multi-condition builder in Config alert dialog
+
 ---
 
 ## 7. Key Risks & Mitigations (Project-Level)
@@ -267,12 +299,14 @@ The project should define measurable outcomes to evaluate whether it delivered v
 > **Instructions for the next AI session:**
 > Read this document and `docs/implementation_details.md` in full before contributing. All design decisions are finalised unless explicitly reopened. When a decision is reopened, add a note to Section 8 (Open Questions) and update the Document History table.
 >
-> **Current status as of 2026-05-13:**
+> **Current status as of 2026-05-14:**
 > - Phase 1 (backend + debug data layer + basic dashboard) ✅ Complete
 > - Phase 2 (FinBERT sentiment, live collectors, weather map, enhanced alerts) ✅ Complete
 > - UI refactor (Tailwind/shadcn, sidebar, brand colours, light/dark mode, alert severity) ✅ Complete
 > - Phase 3 (backtesting, UAT scenarios, data source audit, user guide, deployment runbook) ✅ Complete
-> - **Next step:** Phase 4 (optional) — ERP integration scoping with ACL IT team
+> - Phase 4 (alert reliability, FX enhancements, climate alerts) ✅ Complete — see `docs/phase4_phase5_plan.md`
+> - Phase 5 (composite alerts, CBSL overlay, SLFRS export, news intelligence) ✅ Complete — see `docs/phase4_phase5_plan.md`
+> - **All planned phases complete.**
 >
 > **Running the project:**
 > ```bash
@@ -297,4 +331,4 @@ The project should define measurable outcomes to evaluate whether it delivered v
 
 ---
 
-*Last updated: 2026-05-13 | Current phase: Phase 3 complete — all planned phases delivered*
+*Last updated: 2026-05-14 | Current phase: Phase 5 complete — all phases delivered*

@@ -42,9 +42,12 @@ export interface SentimentTopic {
 
 export interface ScenarioConditions {
   usd_lkr: number
+  usd_lkr_change_pct: number
   copper_change_pct: number
   aluminium_change_pct: number
   high_risk_locations: string[]
+  drought_risk_locations: string[]
+  max_temp_c: number | null
   sentiment_by_topic: Record<string, SentimentTopic>
 }
 

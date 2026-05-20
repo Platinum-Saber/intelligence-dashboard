@@ -1,8 +1,8 @@
+.env
+*.db
 .venv
 __pycache__
+**/__pycache__
 *.pyc
-*.pyo
 .pytest_cache
-debug/
 tests/
-*.db-journal

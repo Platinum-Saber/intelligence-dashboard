@@ -3,7 +3,7 @@
 
 > **Purpose:** Documents post-Phase-3 improvement opportunities identified from two gap analyses: (1) the AR 2024/25 climate risk evidence (`climate_risk.md`) vs. the current weather implementation, and (2) the AR 2024/25 Exchange Rate Risk (#6) vs. the current FX/commodity/news implementation. Each item includes an implementation strategy scoped to the existing tech stack — no new infrastructure required unless stated.
 >
-> **Context:** All three planned phases are complete. This document covers Phase 4+ enhancements prioritised by AR evidence weight and implementation effort.
+> **Context:** Phase 4 is now complete. Items 1, 2, 3, 6, 7, 8, 10, and 11 have been implemented. Items 4, 5, 9, and 12 are planned for Phase 5.
 
 ---
 
@@ -13,38 +13,38 @@
 
 The current weather/climate layer collects `rainfall_mm`, `flood_risk`, and `temperature_c` from Open-Meteo across 13 locations every hour. Alerts fire on a point-in-time snapshot check (`flood_risk == "HIGH"`). Several climate risks formally documented in ACL's own AR are not yet covered:
 
-| AR Risk | Currently Monitored | Gap |
-|---|---|---|
-| Floods — Sri Lanka logistics | Yes (`flood_risk` field) | No trend/advance warning |
-| Storms/cyclones — supplier ports | Partial (rainfall only) | No wind speed monitoring |
-| Heatwaves — production setbacks | No | `temperature_c` stored but no alert |
-| Water scarcity/drought — manufacturing | No | Opposite of flood; not derived |
-| SLFRS S1/S2 climate disclosures | No | No export layer |
-| Cross-signal confluence (weather + FX + commodity) | No | Alerts are siloed |
+| AR Risk | Currently Monitored | Gap | Phase 4 Status |
+|---|---|---|---|
+| Floods — Sri Lanka logistics | Yes (`flood_risk` field) | No trend/advance warning | ✅ `trend_window_hours` + `location_elevated_for_hours()` |
+| Storms/cyclones — supplier ports | Partial (rainfall only) | No wind speed monitoring | Deferred (no Open-Meteo wind alert hook) |
+| Heatwaves — production setbacks | No | `temperature_c` stored but no alert | ✅ `heatwave` metric + `consecutive_hot_days()` |
+| Water scarcity/drought — manufacturing | No | Opposite of flood; not derived | ✅ `drought_risk` column + 14-day rolling deficit |
+| SLFRS S1/S2 climate disclosures | No | No export layer | ⏳ Phase 5 (Item 4) |
+| Cross-signal confluence (weather + FX + commodity) | No | Alerts are siloed | ⏳ Phase 5 (Item 5) |
 
 ### Exchange Rate Risk (#6) Gaps
 
 Code-level analysis of `alert_service.py`, `fx_service.py`, `FXPanel.tsx`, and `calculator.py` identified the following gaps against the AR's Risk #6 requirements:
 
-| Requirement | Implementation Status | Gap |
+| Requirement | Implementation Status | Phase 4 Status |
 |---|---|---|
-| FX threshold alert | Done — `usd_lkr lt/gt threshold_value` | Alert fires on absolute level only; no % change or volatility trigger |
-| FX % change alert | Missing | `change_24h_pct` is computed in `fx_service.py` but never used in alert engine |
-| Multi-day FX trend signal | Missing | No "rate sustained above X for N days" logic exists |
-| CBSL rate overlay on FX chart | Planned in scope, not built | `FXPanel.tsx` shows 30d avg only; no central bank rate reference |
-| Per-rule email recipients | Bug | `AlertRule.email_recipients` field in schema; `alert_service.py:140` hardcodes `settings.alert_from_email` — field never read |
+| FX threshold alert | Done — `usd_lkr lt/gt threshold_value` | Unchanged |
+| FX % change alert | Was missing | ✅ `usd_lkr_change_pct` metric wired into alert engine via `fx_service.get_summary()` |
+| Multi-day FX trend signal | Was missing | ✅ `rate_sustained_above(db, threshold, hours)` in `fx_service.py`; shared `trend_window_hours` field on `AlertRule` |
+| CBSL rate overlay on FX chart | Still not built | ⏳ Phase 5 (Item 9) |
+| Per-rule email recipients | Was a bug | ✅ Fixed — `_try_notify(event, rule)` now reads `rule.email_recipients` with fallback |
 
 ### News / Sentiment Gaps
 
-| Requirement | Implementation Status | Gap |
+| Requirement | Implementation Status | Phase 4 Status |
 |---|---|---|
-| Geopolitical news monitoring | Done — FinBERT + topic filter | Sentiment alert has no minimum article count guard; 1 negative article = 100% |
-| Topic classification accuracy | Collection-time only | Topics assigned by which NewsAPI query returned the article, not by content |
-| Headline-level scoring | Done | Full article summary is collected but never scored — only the headline is |
+| Geopolitical news monitoring | Done — FinBERT + topic filter | ✅ Min-article guard fixed (`SENTIMENT_MIN_ARTICLES`, default 5); applied in both `alert_service.py` and `backtest_service.py` |
+| Topic classification accuracy | Collection-time only | ⏳ Phase 5 (Item 12) — keyword reclassification pass |
+| Headline-level scoring | Done | ⏳ Phase 5 (Item 12) — summary concatenation for FinBERT |
 
 ---
 
-## Improvement 1 — Drought & Water Stress Detection
+## Improvement 1 — Drought & Water Stress Detection ✅ Phase 4 Complete
 
 **AR evidence:** Risk #9 (Sustainability & Climate), C1 Chronic Physical Risks — *"Water is crucial in cable manufacturing for cooling, cleaning, and lubricating machinery. Water shortages can disrupt production efficiency, potentially leading to overheating and equipment malfunctions."*
 
@@ -58,7 +58,7 @@ Add a function that reads the last 14 days of `weather_readings` for a given dis
 
 ```python
 def get_drought_risk(db: Session, location_name: str) -> str:
-    cutoff = datetime.utcnow() - timedelta(days=14)
+    cutoff = datetime.now(UTC) - timedelta(days=14)
     readings = db.query(WeatherReading).filter(
         WeatherReading.location_name == location_name,
         WeatherReading.timestamp >= cutoff
@@ -101,7 +101,7 @@ elif rule.metric == "drought_risk":
 
 ---
 
-## Improvement 2 — Heatwave Alert Rule
+## Improvement 2 — Heatwave Alert Rule ✅ Phase 4 Complete
 
 **AR evidence:** C1 Acute Physical Risks — Heatwaves formally listed as causing *"production setbacks, decreased sales from damaged facilities."*
 
@@ -129,7 +129,7 @@ A single hot day is not a heatwave. Add a helper that counts how many of the las
 
 ```python
 def consecutive_hot_days(db, location_name, threshold_c, window=3) -> int:
-    cutoff = datetime.utcnow() - timedelta(days=window)
+    cutoff = datetime.now(UTC) - timedelta(days=window)
     readings = db.query(WeatherReading).filter(
         WeatherReading.location_name == location_name,
         WeatherReading.timestamp >= cutoff,
@@ -148,7 +148,7 @@ Add a temperature colour band to the weather map (blue-to-red scale) as an optio
 
 ---
 
-## Improvement 3 — Multi-Day Trend Alerts
+## Improvement 3 — Multi-Day Trend Alerts ✅ Phase 4 Complete
 
 **AR evidence:** Risk #4 (Operational Risk) — BCP requirement. Flood narrative: *"Disruptions to logistics network, delay deliveries, impact warehouse operations."* The procurement implication is that stock should be pre-positioned **before** a flood event peaks, not after.
 
@@ -169,7 +169,7 @@ trend_window_hours = Column(Integer, nullable=True)  # e.g., 48
 ```python
 def location_elevated_for_hours(db, location_name, min_risk, hours) -> bool:
     risk_order = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
     readings = db.query(WeatherReading).filter(
         WeatherReading.location_name == location_name,
         WeatherReading.timestamp >= cutoff
@@ -191,7 +191,7 @@ Add an optional "Sustained for (hours)" input field in the alert rule creation d
 
 ---
 
-## Improvement 4 — SLFRS S1/S2 Climate Event Log Export
+## Improvement 4 — SLFRS S1/S2 Climate Event Log Export ⏳ Phase 5
 
 **AR evidence:** C4 (p.32) — *"ACL Cables PLC is closely monitoring the developments [of SLFRS S1/S2]. We recognize the significant benefits of aligning our non-financial reporting with SLFRS S1 – General Requirements for Disclosure of Sustainability-related Financial Information, and SLFRS S2 – Climate-related Disclosures."*
 
@@ -237,7 +237,7 @@ Add a "Climate Report" tab to `ConfigPage` alongside the existing Data Sources t
 
 ---
 
-## Improvement 5 — Cross-Signal Composite Alerts
+## Improvement 5 — Cross-Signal Composite Alerts ⏳ Phase 5
 
 **AR evidence:** Risk #6 (Exchange Rate Risk) + Risk #9 (Climate Risk) + B5 (Supply Chain) — the AR's own evidence map shows these risks are causally linked: weather disruption at a supplier port → reduced raw material flow → commodity price pressure → LKR landed cost impact.
 
@@ -280,7 +280,7 @@ Add a "Composite" rule type option in the alert rule dialog. When selected, show
 
 ---
 
-## Improvement 6 — Seasonal / Monsoon Baseline Awareness
+## Improvement 6 — Seasonal / Monsoon Baseline Awareness ✅ Phase 4 Complete
 
 **AR evidence:** The debug generators in `backend/debug/` already encode Sri Lanka's monsoon calendar (Southwest monsoon: May–September, Northeast monsoon: October–January). This domain knowledge is used for synthetic data generation but is absent from the live alert evaluation.
 
@@ -329,7 +329,7 @@ Add a "Seasonal" badge to weather alert rows in the `AlertsPage` table — green
 
 ---
 
-## Improvement 7 — FX Percentage Change Alert
+## Improvement 7 — FX Percentage Change Alert ✅ Phase 4 Complete
 
 **AR evidence:** Risk #6 — *"Volatility in USD/LKR exchange rates affecting the cost of imported raw materials."* The AR's own MDA attributes the 2.8pp gross margin improvement specifically to a 20-point FX swing (317 → 297) — a 6.3% move. A 6% move is the magnitude that matters; a fixed absolute threshold becomes stale as the rate drifts.
 
@@ -367,7 +367,7 @@ Keep the rule_type as `FX_THRESHOLD` — the new metric is just another FX thres
 
 ---
 
-## Improvement 8 — FX Multi-Day Sustained Pressure Alert
+## Improvement 8 — FX Multi-Day Sustained Pressure Alert ✅ Phase 4 Complete
 
 **AR evidence:** Risk #6 mitigation actions state: *"Continuously monitor macroeconomic trends."* A single day above a threshold is noise; a week of sustained elevated rates is a structural signal that forward purchasing decisions should be made.
 
@@ -388,7 +388,7 @@ trend_window_hours = Column(Integer, nullable=True)
 
 ```python
 def rate_sustained_above(db: Session, threshold: float, hours: int) -> bool:
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
     readings = db.query(FXRate).filter(FXRate.timestamp >= cutoff).all()
     if not readings:
         return False
@@ -417,7 +417,7 @@ Reuse the same "Sustained for (hours)" optional input added for weather trend al
 
 ---
 
-## Improvement 9 — CBSL Rate Overlay on FX Chart
+## Improvement 9 — CBSL Rate Overlay on FX Chart ⏳ Phase 5
 
 **AR evidence:** Risk #6 PEST analysis — *"Stability in exchange rates is essential for the industry's reliance on imported raw materials... supported by the government's commitment to the IMF-EFF program."* The CBSL (Central Bank of Sri Lanka) policy rate is a primary driver of USD/LKR movement; displaying it alongside the market rate gives the procurement team the context to distinguish market volatility from policy-driven moves.
 
@@ -457,7 +457,7 @@ In `FXPanel.tsx`, fetch the CBSL history alongside the market rate history. Rend
 
 ---
 
-## Improvement 10 — Sentiment Alert Minimum Article Count Guard
+## Improvement 10 — Sentiment Alert Minimum Article Count Guard ✅ Phase 4 Complete
 
 **AR evidence:** Risk #2 (Country Risk) mitigation — automated news monitoring is only useful if it signals genuine events, not statistical noise from thin data days.
 
@@ -493,7 +493,7 @@ Apply the same guard to `backtest_service.py:169` where identical sentiment logi
 
 ---
 
-## Improvement 11 — Per-Rule Email Recipients (Bug Fix)
+## Improvement 11 — Per-Rule Email Recipients (Bug Fix) ✅ Phase 4 Complete
 
 **AR evidence:** Risk #6 mitigation — *"Maintain an adequate foreign currency reserve buffer."* Different alert types should reach different people: an FX threshold alert is relevant to the CFO and procurement lead; a flood risk alert is relevant to the logistics manager. Flat routing to one address undermines the alert system's operational value.
 
@@ -538,7 +538,7 @@ Pass the `rule` object into `_try_notify()` from the `check_alerts()` call site.
 
 ---
 
-## Improvement 12 — Content-Based News Topic Classification
+## Improvement 12 — Content-Based News Topic Classification ⏳ Phase 5
 
 **AR evidence:** Risk #2 (Country Risk) — *"Negative impact arising due to adverse economic factors such as Political, Economic, Social, Technological, Environmental, and Legal."* Accurate topic tagging is the foundation of the sentiment signal: a misclassified article poisons the per-topic sentiment ratios that drive both the dashboard display and the alert rules.
 
@@ -591,42 +591,33 @@ Add a one-time migration endpoint `POST /api/v1/news/reclassify-all` that re-run
 
 ### Climate Improvements
 
-| # | Improvement | AR Risk Covered | Effort | Priority |
+| # | Improvement | AR Risk Covered | Effort | Status |
 |---|---|---|---|---|
-| 1 | Drought / water stress detection | Risk #9, C1 Chronic Physical | 1 day | High — unaddressed manufacturing risk |
-| 2 | Heatwave alert rule | C1 Acute Physical | 4 hours | High — data already exists |
-| 3 | Multi-day trend alerts (weather) | Risk #4 BCP, C1 Floods | 1 day | High — enables advance warning |
-| 4 | SLFRS S1/S2 export | C4 Compliance | 1.5 days | Medium — compliance use case |
-| 5 | Cross-signal composite alerts | Risk #6 + Risk #9 | 2 days | Medium — highest AI value-add |
-| 6 | Seasonal monsoon baseline | Alert precision metric | 1 day | Medium — reduces alert fatigue |
+| 1 | Drought / water stress detection | Risk #9, C1 Chronic Physical | 1 day | ✅ Phase 4 |
+| 2 | Heatwave alert rule | C1 Acute Physical | 4 hours | ✅ Phase 4 |
+| 3 | Multi-day trend alerts (weather) | Risk #4 BCP, C1 Floods | 1 day | ✅ Phase 4 |
+| 4 | SLFRS S1/S2 export | C4 Compliance | 1.5 days | ⏳ Phase 5 |
+| 5 | Cross-signal composite alerts | Risk #6 + Risk #9 | 2 days | ⏳ Phase 5 |
+| 6 | Seasonal monsoon baseline | Alert precision metric | 1 day | ✅ Phase 4 |
 
 ### Exchange Rate & Intelligence Layer
 
-| # | Improvement | AR Risk Covered | Effort | Priority |
+| # | Improvement | AR Risk Covered | Effort | Status |
 |---|---|---|---|---|
-| 7 | FX % change alert | Risk #6 Exchange Rate | 2 hours | High — data exists; evaluator missing |
-| 8 | FX multi-day sustained pressure alert | Risk #6, forward purchasing | 1 day | High — shares schema work with #3 |
-| 9 | CBSL rate overlay on FX chart | Risk #6, PEST Economic | 1 day | Medium — context for rate interpretation |
-| 10 | Sentiment minimum article count guard | Risk #2, alert precision | 1 hour | High — bug fix, not enhancement |
-| 11 | Per-rule email recipients (bug fix) | Risk #6 operational alerting | 30 min | High — existing field never read |
-| 12 | Content-based news topic classification | Risk #2 Country Risk | 1 day | Medium — improves signal quality |
+| 7 | FX % change alert | Risk #6 Exchange Rate | 2 hours | ✅ Phase 4 |
+| 8 | FX multi-day sustained pressure alert | Risk #6, forward purchasing | 1 day | ✅ Phase 4 |
+| 9 | CBSL rate overlay on FX chart | Risk #6, PEST Economic | 1 day | ⏳ Phase 5 |
+| 10 | Sentiment minimum article count guard | Risk #2, alert precision | 1 hour | ✅ Phase 4 |
+| 11 | Per-rule email recipients (bug fix) | Risk #6 operational alerting | 30 min | ✅ Phase 4 |
+| 12 | Content-based news topic classification | Risk #2 Country Risk | 1 day | ⏳ Phase 5 |
 
-### Recommended Sequencing
+### Phase 4 Delivered (2026-05-14)
 
-**Sprint 1 — Bug fixes first (~2 hours total):**
-Items 10 and 11 are code bugs with near-zero risk. Fix these before any new features to ensure the alerting layer is reliable.
+Items 1, 2, 3, 6, 7, 8, 10, 11 — all 8 planned Phase 4 improvements delivered. See `docs/implementation_details.md` v1.0 and `docs/phase4_phase5_plan.md` for the full decision log.
 
-**Sprint 2 — FX alert enhancements + schema (~1.5 days):**
-Items 7 and 8 together (FX % change alert + FX trend alert). Item 8 shares the `trend_window_hours` schema addition with Item 3 — do both in the same migration.
+### Phase 5 Remaining (~5.5 days)
 
-**Sprint 3 — Climate alert enhancements (~3 days):**
-Items 1, 2, 3, and 6 together — all touch `weather_service.py` and `alert_service.py`. Item 6 (seasonal baseline) adds message enrichment to Item 3's trend logic.
-
-**Sprint 4 — Standalone improvements (~3.5 days):**
-Items 4 (SLFRS export), 9 (CBSL overlay), and 12 (topic reclassification) — each is self-contained and can be parallelised.
-
-**Sprint 5 — Composite alerts (~2 days):**
-Item 5 last — depends on the enriched alert infrastructure from Sprints 2 and 3.
+Items 4, 5, 9, 12 — see `docs/phase4_phase5_plan.md` for sprint breakdown and implementation strategies.
 
 ---
 
@@ -644,6 +635,6 @@ These items were considered and excluded from this document:
 
 ---
 
-*Document created: 2026-05-13 | Last updated: 2026-05-13*
+*Document created: 2026-05-13 | Last updated: 2026-05-14 | Phase 4 complete — Phase 5 items (4, 5, 9, 12) remaining*
 *Source analysis: `climate_risk.md`, `implementation_details.md`, `architecture.md`, `project_detailes.md`, `alert_service.py`, `fx_service.py`, `FXPanel.tsx`, `calculator.py`, `sentiment_service.py`, `news_service.py`*
 *To be read alongside: `docs/implementation_details.md` for tech stack context*

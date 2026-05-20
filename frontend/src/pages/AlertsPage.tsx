@@ -7,6 +7,20 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Bell, Search } from "lucide-react"
 
+function SeasonalBadge({ message }: { message: string }) {
+  if (!message.includes("[Seasonal context:")) return null
+  const anomalous = message.includes("ANOMALOUS")
+  return (
+    <span className={`inline-flex items-center ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 ${
+      anomalous
+        ? "bg-red-500/15 text-red-500"
+        : "bg-green-500/15 text-green-600 dark:text-green-400"
+    }`}>
+      {anomalous ? "Anomalous" : "Seasonal"}
+    </span>
+  )
+}
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60_000)
@@ -25,38 +39,44 @@ function formatDate(iso: string) {
   })
 }
 
-/** Returns Tailwind classes for row bg, dot, and badge based on alert type + message content */
+/** Returns dot colour and badge classes based on alert type + message content.
+ *  Seasonal context text is stripped before classification to avoid false matches
+ *  (e.g. "flood/drought" in the seasonal suffix mis-labelling flood alerts as Drought). */
 function getSeverity(ruleType: string | undefined, message: string): {
-  rowBg: string
   dot: string
   badgeClass: string
   label: string
 } {
-  const msg = message.toLowerCase()
+  // Strip seasonal context suffix before keyword matching
+  const core = message.toLowerCase().split("[seasonal context:")[0]
 
-  if (ruleType === "WEATHER_RISK" || msg.includes("flood")) {
-    if (msg.includes("critical"))
-      return { rowBg: "bg-red-500/8 dark:bg-red-500/10",      dot: "bg-red-500",    badgeClass: "bg-red-500/15 text-red-500",    label: "Critical" }
-    if (msg.includes("high"))
-      return { rowBg: "bg-orange-500/8 dark:bg-orange-500/10", dot: "bg-orange-500", badgeClass: "bg-orange-500/15 text-orange-500", label: "High Risk" }
-    if (msg.includes("medium"))
-      return { rowBg: "bg-yellow-500/8 dark:bg-yellow-500/10", dot: "bg-yellow-500", badgeClass: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400", label: "Medium" }
-    return   { rowBg: "bg-yellow-500/5",                        dot: "bg-yellow-400", badgeClass: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400", label: "Low" }
+  if (ruleType === "WEATHER_RISK" || core.includes("flood") || core.includes("drought") || core.includes("heatwave")) {
+    if (core.includes("critical"))
+      return { dot: "bg-red-500",    badgeClass: "bg-red-500/15 text-red-500",                                    label: "Critical" }
+    if (core.includes("heatwave"))
+      return { dot: "bg-orange-500", badgeClass: "bg-orange-500/15 text-orange-500",                              label: "Heatwave" }
+    if (core.includes("drought"))
+      return { dot: "bg-yellow-500", badgeClass: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",         label: "Drought" }
+    if (core.includes("high"))
+      return { dot: "bg-orange-500", badgeClass: "bg-orange-500/15 text-orange-500",                              label: "High Risk" }
+    if (core.includes("medium"))
+      return { dot: "bg-yellow-500", badgeClass: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",         label: "Medium" }
+    return   { dot: "bg-yellow-400", badgeClass: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",         label: "Low" }
   }
 
-  if (ruleType === "SENTIMENT_NEGATIVE" || msg.includes("sentiment") || msg.includes("negative"))
-    return { rowBg: "bg-red-500/8 dark:bg-red-500/10",      dot: "bg-red-500",    badgeClass: "bg-red-500/15 text-red-500",    label: "Negative" }
+  if (ruleType === "SENTIMENT_NEGATIVE" || core.includes("sentiment") || core.includes("negative"))
+    return { dot: "bg-red-500",    badgeClass: "bg-red-500/15 text-red-500",    label: "Negative" }
 
   if (ruleType === "COMMODITY_DIP") {
-    if (msg.includes("fell") || msg.includes("below") || msg.includes("dip") || msg.includes("dropped"))
-      return { rowBg: "bg-green-500/6 dark:bg-green-500/8",  dot: "bg-green-500",  badgeClass: "bg-green-500/15 text-green-600 dark:text-green-400", label: "Favourable" }
-    return { rowBg: "bg-orange-500/8 dark:bg-orange-500/10", dot: "bg-orange-500", badgeClass: "bg-orange-500/15 text-orange-500", label: "Price Alert" }
+    if (core.includes("fell") || core.includes("below") || core.includes("dip") || core.includes("dropped"))
+      return { dot: "bg-green-500",  badgeClass: "bg-green-500/15 text-green-600 dark:text-green-400", label: "Favourable" }
+    return { dot: "bg-orange-500", badgeClass: "bg-orange-500/15 text-orange-500", label: "Price Alert" }
   }
 
-  if (ruleType === "FX_THRESHOLD" || msg.includes("usd") || msg.includes("lkr") || msg.includes("fx") || msg.includes("exchange"))
-    return { rowBg: "",                                        dot: "bg-blue-500",   badgeClass: "bg-blue-500/15 text-blue-500",  label: "FX" }
+  if (ruleType === "FX_THRESHOLD" || core.includes("usd") || core.includes("lkr") || core.includes("fx") || core.includes("exchange"))
+    return { dot: "bg-blue-500",   badgeClass: "bg-blue-500/15 text-blue-500",  label: "FX" }
 
-  return { rowBg: "",                                          dot: "bg-blue-400",   badgeClass: "bg-blue-500/10 text-blue-400",  label: "Info" }
+  return { dot: "bg-blue-400",   badgeClass: "bg-blue-500/10 text-blue-400",  label: "Info" }
 }
 
 const LIMIT_OPTIONS = [25, 50, 100, 200]
@@ -168,11 +188,11 @@ export function AlertsPage() {
                 <tbody>
                   {filtered.map((ev: AlertEvent) => {
                     const rule = ruleMap[ev.rule_id]
-                    const { rowBg, dot, badgeClass, label } = getSeverity(rule?.rule_type, ev.message)
+                    const { dot, badgeClass, label } = getSeverity(rule?.rule_type, ev.message)
                     return (
                       <tr
                         key={ev.id}
-                        className={`border-b border-[var(--c-border)] transition-colors hover:bg-muted/30 ${rowBg}`}
+                        className="border-b border-[var(--c-border)] transition-colors hover:bg-muted/30"
                       >
                         {/* Severity dot */}
                         <td className="py-3 px-3">
@@ -198,7 +218,10 @@ export function AlertsPage() {
                         </td>
                         {/* Message */}
                         <td className="py-3 px-3">
-                          <p className="text-muted-foreground">{ev.message}</p>
+                          <div className="flex items-start gap-1.5 flex-wrap">
+                            <p className="text-muted-foreground">{ev.message.split("[Seasonal context:")[0]}</p>
+                            <SeasonalBadge message={ev.message} />
+                          </div>
                         </td>
                         {/* Notified */}
                         <td className="py-3 px-3">

@@ -1,17 +1,40 @@
 version: "3.9"
 
 services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: procurement_intel
+      POSTGRES_USER: acl
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acl -d procurement_intel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build: ./backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - backend_venv:/app/.venv
     environment:
-      - DEBUG=true
-      - DATABASE_URL=sqlite:///./procurement_intel.db
+      - DEBUG=false
+      - DATABASE_URL=postgresql://acl:changeme@db:5432/procurement_intel
       - FRONTEND_URL=http://localhost:5173
+      - FX_API_KEY=bdb3f00ac03005cc3737bcf6
+      - FREENEWSAPI_KEY=2b24eb9f94889ff43ce875c483ce22312d5748bf4289aa2727b35125d55032a5
+      - SENTIMENT_ENABLED=true
+      - FINBERT_MODEL_PATH=/app/models/buyer_finbert
+    volumes:
+      - ./FinBERT_model/model/buyer_finbert:/app/models/buyer_finbert:ro
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -22,21 +45,5 @@ services:
       - backend
     restart: unless-stopped
 
-# For production with PostgreSQL, uncomment:
-#
-#  db:
-#    image: timescale/timescaledb:latest-pg16
-#    environment:
-#      POSTGRES_DB: procurement_intel
-#      POSTGRES_USER: acl
-#      POSTGRES_PASSWORD: changeme
-#    volumes:
-#      - pgdata:/var/lib/postgresql/data
-#    ports:
-#      - "5432:5432"
-#
 volumes:
-  backend_venv:
-
-# volumes:
-#   pgdata:
+  pgdata:

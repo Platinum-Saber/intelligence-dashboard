@@ -9,13 +9,15 @@ class AlertRule(Base):
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     name = Column(String(100), nullable=False)
-    rule_type = Column(String(50), index=True)   # FX_THRESHOLD | COMMODITY_DIP | WEATHER_RISK
-    metric = Column(String(50))                  # usd_lkr | copper_price | aluminium_price | flood_risk
+    rule_type = Column(String(50), index=True)   # FX_THRESHOLD | COMMODITY_DIP | WEATHER_RISK | SENTIMENT_NEGATIVE
+    metric = Column(String(50))                  # usd_lkr | usd_lkr_change_pct | copper_price | aluminium_price | flood_risk | drought_risk | heatwave | news_sentiment
     comparison = Column(String(10))              # lt | gt | eq
     threshold_value = Column(Float)
     threshold_text = Column(String(50))          # for text comparisons e.g. flood_risk = "HIGH"
     enabled = Column(Boolean, default=True)
     email_recipients = Column(Text)              # comma-separated
+    trend_window_hours = Column(Integer, nullable=True)  # sustained-condition window for FX and weather alerts
+    composite_condition = Column(Text, nullable=True)    # Sprint 5.4: JSON array of sub-conditions for COMPOSITE rule type
 
 
 class AlertEvent(Base):
