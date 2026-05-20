@@ -7,6 +7,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - backend_venv:/app/.venv
     environment:
       - DEBUG=true
       - DATABASE_URL=sqlite:///./procurement_intel.db
@@ -34,5 +35,8 @@ services:
 #    ports:
 #      - "5432:5432"
 #
+volumes:
+  backend_venv:
+
 # volumes:
 #   pgdata:

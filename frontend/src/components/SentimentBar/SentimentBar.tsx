@@ -15,17 +15,19 @@ const TOPIC_COLOR: Record<string, string> = {
 function Bar({ s }: { s: SentimentSummary }) {
   const total = s.positive + s.negative + s.neutral + s.unscored;
   if (total === 0) return null;
-  const pctPos  = (s.positive / total) * 100;
-  const pctNeg  = (s.negative / total) * 100;
-  const pctNeut = (s.neutral  / total) * 100;
+  const pctPos      = (s.positive / total) * 100;
+  const pctNeg      = (s.negative / total) * 100;
+  const pctNeut     = (s.neutral  / total) * 100;
+  const pctUnscored = (s.unscored / total) * 100;
 
   return (
     <div className={styles.row}>
       <span className={styles.topic} style={{ color: TOPIC_COLOR[s.topic] }}>{s.topic}</span>
       <div className={styles.barTrack}>
-        <div className={styles.barPos}  style={{ width: `${pctPos}%` }}  title={`Positive: ${s.positive}`} />
-        <div className={styles.barNeut} style={{ width: `${pctNeut}%` }} title={`Neutral: ${s.neutral}`} />
-        <div className={styles.barNeg}  style={{ width: `${pctNeg}%` }}  title={`Negative: ${s.negative}`} />
+        <div className={styles.barPos}      style={{ width: `${pctPos}%` }}      title={`Positive: ${s.positive}`} />
+        <div className={styles.barNeut}     style={{ width: `${pctNeut}%` }}     title={`Neutral: ${s.neutral}`} />
+        <div className={styles.barNeg}      style={{ width: `${pctNeg}%` }}      title={`Negative: ${s.negative}`} />
+        <div className={styles.barUnscored} style={{ width: `${pctUnscored}%` }} title={`Unscored: ${s.unscored}`} />
       </div>
       <span className={styles.counts}>{s.positive}↑ {s.neutral}– {s.negative}↓</span>
     </div>
